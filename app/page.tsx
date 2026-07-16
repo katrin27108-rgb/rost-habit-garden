@@ -3,6 +3,7 @@
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { isStoredHabit, migrateLegacyHabits, metricsForHabit, createStoredHabit, BACKUP_STORAGE_KEY, LEGACY_STORAGE_KEY, STORAGE_KEY, type LegacyHabit, type NewHabitInput, type StoredHabit } from "../lib/app-model";
 import type { DateKey } from "../lib/domain";
+import { enqueueOperation, loadHabitSnapshot, newOperation, saveHabitSnapshot } from "../lib/offline-store";
 import HabitWizard from "./HabitWizard";
 import LivingGarden from "./LivingGarden";
 
@@ -74,14 +75,15 @@ export default function Home() {
   const [showWalk, setShowWalk] = useState(false);
 
   const today = dateKey();
-  const doneToday = habits.filter((habit) => habit.completions.includes(today));
-  const undoneToday = habits.filter((habit) => !habit.completions.includes(today));
-  const todayProgress = habits.length ? Math.round((doneToday.length / habits.length) * 100) : 0;
-  const totalCompletions = habits.reduce((sum, habit) => sum + habit.completions.length, 0);
-  const metrics = useMemo(() => new Map(habits.map((habit) => [habit.id, metricsForHabit(habit, today)])), [habits, today]);
-  const bestStreak = Math.max(0, ...habits.map((habit) => metrics.get(habit.id)?.bestStreak ?? 0));
+  const visibleHabits = habits.filter((habit) => habit.status !== "deleted");
+  const doneToday = visibleHabits.filter((habit) => habit.completions.includes(today));
+  const undoneToday = visibleHabits.filter((habit) => !habit.completions.includes(today));
+  const todayProgress = visibleHabits.length ? Math.round((doneToday.length / visibleHabits.length) * 100) : 0;
+  const totalCompletions = visibleHabits.reduce((sum, habit) => sum + habit.completions.length, 0);
+  const metrics = useMemo(() => new Map(visibleHabits.map((habit) => [habit.id, metricsForHabit(habit, today)])), [habits, today]);
+  const bestStreak = Math.max(0, ...visibleHabits.map((habit) => metrics.get(habit.id)?.bestStreak ?? 0));
   const energy = totalCompletions * 10;
-  const gardenProgress = habits.length ? habits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / habits.length : 0;
+  const gardenProgress = visibleHabits.length ? visibleHabits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / visibleHabits.length : 0;
   const gardenPercent = Math.round(gardenProgress * 100);
   const gardenDay = gardenPercent;
   const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
@@ -94,7 +96,7 @@ export default function Home() {
     return Array.from({ length: 7 }, (_, index) => {
       const date = shiftDate(index - 6);
       const key = dateKey(date);
-      const count = habits.filter((habit) => habit.completions.includes(key)).length;
+      const count = visibleHabits.filter((habit) => habit.completions.includes(key)).length;
       return {
         key,
         count,
@@ -106,7 +108,7 @@ export default function Home() {
 
   const achievements: Achievement[] = [
     { id: "seed", icon: "🌱", title: "Первый росток", description: "Выполнено первое действие", unlocked: totalCompletions >= 1 },
-    { id: "day", icon: "☀️", title: "Зелёный день", description: "Все привычки за день", unlocked: todayProgress === 100 && habits.length > 0 },
+    { id: "day", icon: "☀️", title: "Зелёный день", description: "Все привычки за день", unlocked: todayProgress === 100 && visibleHabits.length > 0 },
     { id: "rhythm", icon: "🔥", title: "Ритм найден", description: "Серия из 3 дней", unlocked: bestStreak >= 3 },
     { id: "week", icon: "🕊️", title: "Неделя заботы", description: "Серия из 7 дней", unlocked: bestStreak >= 7 },
     { id: "garden", icon: "🌼", title: "Садовник", description: "25 выполненных действий", unlocked: totalCompletions >= 25 },
@@ -115,7 +117,7 @@ export default function Home() {
   const unlockedCount = achievements.filter((achievement) => achievement.unlocked).length;
 
   const support = useMemo(() => {
-    if (habits.length === 0) {
+    if (visibleHabits.length === 0) {
       return {
         title: "Здесь можно начать совсем маленько",
         text: "Посади одну привычку, которая сейчас правда тебе по силам. Не идеальную — живую.",
@@ -149,7 +151,7 @@ export default function Home() {
       title: bestStreak > 0 ? "Твой ритм всё ещё с тобой" : "Я рядом — начнём без давления",
       text: "Выбери самое лёгкое дело. Можно сделать сокращённую версию — две минуты тоже считаются и помогают вернуться к себе.",
     };
-  }, [bestStreak, doneToday.length, habits.length, isWilting, todayProgress]);
+  }, [bestStreak, doneToday.length, visibleHabits.length, isWilting, todayProgress]);
 
   const gardenCopy = isWilting
     ? { title: "Сад ждёт каплю заботы", text: "Одно действие вернёт краски и поднимет траву." }
@@ -162,32 +164,46 @@ export default function Home() {
           : { title: "Утро только начинается", text: "Первая отметка разбудит свет и даст дереву новую ветвь." };
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as unknown[];
-        if (Array.isArray(parsed) && parsed.every(isStoredHabit)) setHabits(parsed);
-      } else {
-        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacy) {
-          if (!localStorage.getItem(BACKUP_STORAGE_KEY)) localStorage.setItem(BACKUP_STORAGE_KEY, legacy);
-          const parsed = JSON.parse(legacy) as LegacyHabit[];
-          if (Array.isArray(parsed)) setHabits(migrateLegacyHabits(parsed, today));
+    let cancelled = false;
+    const restore = async () => {
+      try {
+        const indexed = await loadHabitSnapshot();
+        if (indexed?.length && indexed.every(isStoredHabit)) {
+          if (!cancelled) setHabits(indexed);
+          return;
         }
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as unknown[];
+          if (Array.isArray(parsed) && parsed.every(isStoredHabit) && !cancelled) setHabits(parsed);
+        } else {
+          const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacy) {
+            if (!localStorage.getItem(BACKUP_STORAGE_KEY)) localStorage.setItem(BACKUP_STORAGE_KEY, legacy);
+            const parsed = JSON.parse(legacy) as LegacyHabit[];
+            if (Array.isArray(parsed) && !cancelled) setHabits(migrateLegacyHabits(parsed, today));
+          }
+        }
+      } catch {
+        // The starter garden remains available if local recovery fails.
+      } finally {
+        if (!cancelled) setHydrated(true);
       }
-    } catch {
-      // Keep the gentle starter set if local data is malformed.
-    }
-    setHydrated(true);
+    };
+    void restore();
 
     if ("serviceWorker" in navigator) {
       const workerUrl = new URL("sw.js", window.location.href).pathname;
       navigator.serviceWorker.register(workerUrl).catch(() => undefined);
     }
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+    if (hydrated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(habits));
+      void saveHabitSnapshot(habits);
+    }
   }, [habits, hydrated]);
 
   useEffect(() => {
@@ -271,20 +287,24 @@ export default function Home() {
     if (!isDone) {
       setBurst((value) => value + 1);
       const nextCount = doneToday.length + 1;
-      setToast(nextCount === habits.length ? "Сад расцвёл — день завершён 🌼" : `+10 энергии · «${habit.name}» дало саду жизнь`);
+      setToast(nextCount === visibleHabits.length ? "Сад расцвёл — день завершён 🌼" : `+10 энергии · «${habit.name}» дало саду жизнь`);
       window.setTimeout(() => setToast(""), 2800);
     }
+    void enqueueOperation(newOperation(isDone ? "completion.remove" : "completion.add", id, { localDate: today }));
   }
 
   function addHabit(input: NewHabitInput) {
-    setHabits((current) => [...current, createStoredHabit(input, crypto.randomUUID(), new Set(current.map((habit) => habit.gardenSlot)))]);
+    const id = crypto.randomUUID();
+    setHabits((current) => [...current, createStoredHabit(input, id, new Set(current.map((habit) => habit.gardenSlot)))]);
+    void enqueueOperation(newOperation("habit.create", id, input as unknown as Record<string, unknown>));
     setShowAdd(false);
     setToast("Новая привычка посажена 🌱");
     window.setTimeout(() => setToast(""), 2400);
   }
 
   function removeHabit(id: string) {
-    setHabits((current) => current.filter((habit) => habit.id !== id));
+    setHabits((current) => current.map((habit) => habit.id === id ? { ...habit, status: "deleted", updatedAt: new Date().toISOString() } : habit));
+    void enqueueOperation(newOperation("habit.delete", id, {}));
   }
 
   const formattedDate = new Intl.DateTimeFormat("ru-RU", {
@@ -326,13 +346,13 @@ export default function Home() {
             </div>
           </div>
           <p className="section-note">
-            {todayProgress === 100 && habits.length > 0
+            {todayProgress === 100 && visibleHabits.length > 0
               ? "Все привычки выполнены. Сад сегодня счастлив."
-              : `Ещё ${Math.max(0, habits.length - doneToday.length)} — но даже один маленький шаг уже считается.`}
+              : `Ещё ${Math.max(0, visibleHabits.length - doneToday.length)} — но даже один маленький шаг уже считается.`}
           </p>
 
           <div className="habit-list">
-            {habits.map((habit) => {
+            {visibleHabits.map((habit) => {
               const isDone = habit.completions.includes(today);
               const habitProgress = metrics.get(habit.id);
               const streak = habitProgress?.currentStreak ?? 0;
@@ -348,7 +368,7 @@ export default function Home() {
                 </article>
               );
             })}
-            {habits.length === 0 && <div className="empty-state"><span>🌱</span><strong>Здесь пока тихо</strong><p>Посади первую привычку — и сад начнёт расти.</p></div>}
+            {visibleHabits.length === 0 && <div className="empty-state"><span>🌱</span><strong>Здесь пока тихо</strong><p>Посади первую привычку — и сад начнёт расти.</p></div>}
           </div>
 
           <button className="add-button" onClick={() => setShowAdd(true)}><span>＋</span> Добавить привычку</button>
@@ -409,7 +429,7 @@ export default function Home() {
             <div className="section-heading compact"><div><p className="eyebrow">Последние 7 дней</p><h2>Неделя</h2></div><span className="week-total">{week.reduce((sum, day) => sum + day.count, 0)} ✓</span></div>
             <div className="week-chart" aria-label="Выполнения по дням недели">
               {week.map((day) => {
-                const height = habits.length ? Math.max(8, (day.count / habits.length) * 100) : 8;
+                const height = visibleHabits.length ? Math.max(8, (day.count / visibleHabits.length) * 100) : 8;
                 return <div className={`week-day ${day.key === today ? "is-today" : ""}`} key={day.key}><div className="bar-track"><span style={{ height: `${height}%` }} /></div><b>{day.label}</b><small>{day.day}</small></div>;
               })}
             </div>

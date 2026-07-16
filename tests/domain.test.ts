@@ -12,6 +12,7 @@ import {
   type ScheduleRule,
 } from "../lib/domain.ts";
 import { migrateLegacyHabits } from "../lib/app-model.ts";
+import { mergeOperations } from "../lib/offline-store.ts";
 
 function habit(rule: ScheduleRule, completions: DateKey[], startsOn: DateKey = "2026-07-01", duration = 14): DomainHabit {
   const season = makeSeason(startsOn, duration, rule, "season-1");
@@ -106,4 +107,14 @@ test("legacy migration is deterministic and keeps every completion", () => {
   assert.deepEqual(first[0].completions, ["2026-07-01", "2026-07-02"]);
   assert.equal(first[0].gardenSlot, second[0].gardenSlot);
   assert.equal(first[0].endsOn, "2026-08-14");
+});
+
+test("sync queue ignores server-confirmed and duplicate operations", () => {
+  const base = { kind: "completion.add" as const, entityId: "habit-1", payload: {}, attempts: 0 };
+  const operations = [
+    { ...base, operationId: "one", createdAt: "2026-07-16T10:00:00Z" },
+    { ...base, operationId: "one", createdAt: "2026-07-16T10:00:00Z" },
+    { ...base, operationId: "two", createdAt: "2026-07-16T11:00:00Z" },
+  ];
+  assert.deepEqual(mergeOperations(operations, new Set(["two"])).map((item) => item.operationId), ["one"]);
 });
