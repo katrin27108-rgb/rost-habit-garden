@@ -11,6 +11,7 @@ import {
   type DomainHabit,
   type ScheduleRule,
 } from "../lib/domain.ts";
+import { migrateLegacyHabits } from "../lib/app-model.ts";
 
 function habit(rule: ScheduleRule, completions: DateKey[], startsOn: DateKey = "2026-07-01", duration = 14): DomainHabit {
   const season = makeSeason(startsOn, duration, rule, "season-1");
@@ -98,3 +99,11 @@ test("garden slots are stable and resolve collisions", () => {
   assert.notEqual(stableGardenSlot("habit-a", occupied), first);
 });
 
+test("legacy migration is deterministic and keeps every completion", () => {
+  const legacy = [{ id: "water", name: "Стакан воды", icon: "💧", color: "#abc", completions: ["2026-07-01", "2026-07-01", "2026-07-02"] }];
+  const first = migrateLegacyHabits(legacy, "2026-07-16");
+  const second = migrateLegacyHabits(legacy, "2026-07-16");
+  assert.deepEqual(first[0].completions, ["2026-07-01", "2026-07-02"]);
+  assert.equal(first[0].gardenSlot, second[0].gardenSlot);
+  assert.equal(first[0].endsOn, "2026-08-14");
+});

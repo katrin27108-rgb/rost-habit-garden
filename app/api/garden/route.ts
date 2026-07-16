@@ -4,11 +4,22 @@ import { getDb } from "../../../db";
 import { gardens } from "../../../db/schema";
 
 type HabitPayload = {
+  schemaVersion?: number;
   id: string;
   name: string;
   icon: string;
   color: string;
   completions: string[];
+  plantKind?: string;
+  gardenSlot?: number;
+  startsOn?: string;
+  endsOn?: string;
+  schedule?: { type?: string; weekdays?: number[]; times?: number };
+  status?: string;
+  seasonNumber?: number;
+  reminder?: { enabled?: boolean; time?: string; timezone?: string };
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 function safeDisplayName(displayName: string, email: string) {
@@ -42,13 +53,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "Некорректные привычки" }, { status: 400 });
   }
 
-  const cleanHabits = payload.habits.map((habit) => ({
-    id: String(habit.id).slice(0, 80),
-    name: String(habit.name).slice(0, 80),
-    icon: String(habit.icon).slice(0, 8),
-    color: String(habit.color).slice(0, 20),
-    completions: Array.isArray(habit.completions) ? habit.completions.map(String).slice(0, 2000) : [],
-  }));
+  const cleanHabits = payload.habits.map((habit) => {
+    const legacy = {
+      id: String(habit.id).slice(0, 80), name: String(habit.name).slice(0, 80), icon: String(habit.icon).slice(0, 8),
+      color: String(habit.color).slice(0, 20), completions: Array.isArray(habit.completions) ? [...new Set(habit.completions.map(String))].slice(0, 2000) : [],
+    };
+    if (habit.schemaVersion !== 2) return legacy;
+    const ruleType = ["daily", "weekdays", "weekly"].includes(habit.schedule?.type ?? "") ? habit.schedule?.type : "daily";
+    return {
+      ...legacy, schemaVersion: 2, plantKind: String(habit.plantKind ?? "chamomile").slice(0, 20),
+      gardenSlot: Math.max(0, Math.min(63, Number(habit.gardenSlot) || 0)), startsOn: String(habit.startsOn ?? "").slice(0, 10),
+      endsOn: String(habit.endsOn ?? "").slice(0, 10), schedule: { type: ruleType, weekdays: habit.schedule?.weekdays?.map(Number).filter((day) => day >= 1 && day <= 7), times: Math.max(1, Math.min(7, Number(habit.schedule?.times) || 1)) },
+      status: String(habit.status ?? "active").slice(0, 20), seasonNumber: Math.max(1, Number(habit.seasonNumber) || 1),
+      reminder: { enabled: Boolean(habit.reminder?.enabled), time: String(habit.reminder?.time ?? "09:00").slice(0, 5), timezone: String(habit.reminder?.timezone ?? "UTC").slice(0, 80) },
+      createdAt: String(habit.createdAt ?? new Date().toISOString()).slice(0, 30), updatedAt: String(habit.updatedAt ?? new Date().toISOString()).slice(0, 30),
+    };
+  });
   const db = getDb();
   const [existing] = await db.select({ publicId: gardens.publicId }).from(gardens).where(eq(gardens.email, user.email)).limit(1);
   const publicId = existing?.publicId ?? crypto.randomUUID();

@@ -1,15 +1,12 @@
 "use client";
 
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { isStoredHabit, migrateLegacyHabits, metricsForHabit, createStoredHabit, BACKUP_STORAGE_KEY, LEGACY_STORAGE_KEY, STORAGE_KEY, type LegacyHabit, type NewHabitInput, type StoredHabit } from "../lib/app-model";
+import type { DateKey } from "../lib/domain";
+import HabitWizard from "./HabitWizard";
 import LivingGarden from "./LivingGarden";
 
-type Habit = {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  completions: string[];
-};
+type Habit = StoredHabit;
 
 type Achievement = {
   id: string;
@@ -31,22 +28,18 @@ type CommunityGarden = {
 
 type AccountStatus = "checking" | "unavailable" | "signed-out" | "connected" | "saving";
 
-const STORAGE_KEY = "rost-habits-v1";
-const ICONS = ["💧", "🧘", "📖", "🚶", "🌿", "☀️", "✍️", "🥗"];
-const COLORS = ["#dff08c", "#f6a789", "#b9d8cf", "#c7b8eb", "#f4d579"];
-
-const starterHabits: Habit[] = [
+const starterLegacyHabits: LegacyHabit[] = [
   { id: "water", name: "Стакан воды", icon: "💧", color: "#b9d8cf", completions: [] },
   { id: "stretch", name: "Растяжка", icon: "🧘", color: "#c7b8eb", completions: [] },
   { id: "read", name: "Читать 20 минут", icon: "📖", color: "#f4d579", completions: [] },
   { id: "walk", name: "Прогулка", icon: "🚶", color: "#f6a789", completions: [] },
 ];
 
-function dateKey(date = new Date()) {
+function dateKey(date = new Date()): DateKey {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${year}-${month}-${day}` as DateKey;
 }
 
 function shiftDate(days: number) {
@@ -54,19 +47,6 @@ function shiftDate(days: number) {
   date.setHours(12, 0, 0, 0);
   date.setDate(date.getDate() + days);
   return date;
-}
-
-function habitStreak(habit: Habit) {
-  const completed = new Set(habit.completions);
-  let cursor = shiftDate(0);
-  if (!completed.has(dateKey(cursor))) cursor = shiftDate(-1);
-
-  let streak = 0;
-  while (completed.has(dateKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
 }
 
 function daysSince(key: string | undefined) {
@@ -78,7 +58,7 @@ function daysSince(key: string | undefined) {
 }
 
 export default function Home() {
-  const [habits, setHabits] = useState<Habit[]>(starterHabits);
+  const [habits, setHabits] = useState<Habit[]>(() => migrateLegacyHabits(starterLegacyHabits, dateKey()));
   const [hydrated, setHydrated] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -89,9 +69,6 @@ export default function Home() {
   const [accountStatus, setAccountStatus] = useState<AccountStatus>("checking");
   const [accountName, setAccountName] = useState("");
   const [cloudReady, setCloudReady] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newIcon, setNewIcon] = useState(ICONS[0]);
-  const [newColor, setNewColor] = useState(COLORS[0]);
   const [toast, setToast] = useState("");
   const [burst, setBurst] = useState(0);
   const [showWalk, setShowWalk] = useState(false);
@@ -101,13 +78,12 @@ export default function Home() {
   const undoneToday = habits.filter((habit) => !habit.completions.includes(today));
   const todayProgress = habits.length ? Math.round((doneToday.length / habits.length) * 100) : 0;
   const totalCompletions = habits.reduce((sum, habit) => sum + habit.completions.length, 0);
-  const bestStreak = Math.max(0, ...habits.map(habitStreak));
+  const metrics = useMemo(() => new Map(habits.map((habit) => [habit.id, metricsForHabit(habit, today)])), [habits, today]);
+  const bestStreak = Math.max(0, ...habits.map((habit) => metrics.get(habit.id)?.bestStreak ?? 0));
   const energy = totalCompletions * 10;
-  const monthlyActionGoal = Math.max(30, habits.length * 30);
-  const gardenProgress = Math.min(1, totalCompletions / monthlyActionGoal);
+  const gardenProgress = habits.length ? habits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / habits.length : 0;
   const gardenPercent = Math.round(gardenProgress * 100);
-  const gardenDayUnits = habits.length ? totalCompletions / habits.length : 0;
-  const gardenDay = Math.min(30, totalCompletions > 0 ? Math.max(1, Math.ceil(gardenDayUnits)) : 0);
+  const gardenDay = gardenPercent;
   const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
   const allCompletionDates = habits.flatMap((habit) => habit.completions).sort();
   const quietDays = daysSince(allCompletionDates.at(-1));
@@ -188,7 +164,17 @@ export default function Home() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setHabits(JSON.parse(saved) as Habit[]);
+      if (saved) {
+        const parsed = JSON.parse(saved) as unknown[];
+        if (Array.isArray(parsed) && parsed.every(isStoredHabit)) setHabits(parsed);
+      } else {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) {
+          if (!localStorage.getItem(BACKUP_STORAGE_KEY)) localStorage.setItem(BACKUP_STORAGE_KEY, legacy);
+          const parsed = JSON.parse(legacy) as LegacyHabit[];
+          if (Array.isArray(parsed)) setHabits(migrateLegacyHabits(parsed, today));
+        }
+      }
     } catch {
       // Keep the gentle starter set if local data is malformed.
     }
@@ -224,7 +210,10 @@ export default function Home() {
       .then((data) => {
         if (!data || cancelled) return;
         setAccountName(data.user?.displayName ?? "Садовник");
-        if (Array.isArray(data.garden?.habits)) setHabits(data.garden.habits as Habit[]);
+        if (Array.isArray(data.garden?.habits)) {
+          const cloudHabits = data.garden.habits as unknown[];
+          setHabits(cloudHabits.every(isStoredHabit) ? cloudHabits : migrateLegacyHabits(cloudHabits as LegacyHabit[], today));
+        }
         setAccountStatus("connected");
         setCloudReady(true);
       })
@@ -287,18 +276,8 @@ export default function Home() {
     }
   }
 
-  function addHabit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = newName.trim();
-    if (!name) return;
-    setHabits((current) => [...current, {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      name,
-      icon: newIcon,
-      color: newColor,
-      completions: [],
-    }]);
-    setNewName("");
+  function addHabit(input: NewHabitInput) {
+    setHabits((current) => [...current, createStoredHabit(input, crypto.randomUUID(), new Set(current.map((habit) => habit.gardenSlot)))]);
     setShowAdd(false);
     setToast("Новая привычка посажена 🌱");
     window.setTimeout(() => setToast(""), 2400);
@@ -355,14 +334,15 @@ export default function Home() {
           <div className="habit-list">
             {habits.map((habit) => {
               const isDone = habit.completions.includes(today);
-              const streak = habitStreak(habit);
+              const habitProgress = metrics.get(habit.id);
+              const streak = habitProgress?.currentStreak ?? 0;
               return (
                 <article className={`habit-card ${isDone ? "is-done" : ""}`} key={habit.id}>
                   <button className="habit-check" style={{ "--habit-color": habit.color } as CSSProperties} aria-label={isDone ? `Отменить выполнение: ${habit.name}` : `Выполнить: ${habit.name}`} aria-pressed={isDone} onClick={() => toggleHabit(habit.id)}>
                     <span className="habit-icon" aria-hidden="true">{habit.icon}</span><span className="check-mark" aria-hidden="true">✓</span>
                   </button>
                   <button className="habit-main" onClick={() => toggleHabit(habit.id)}>
-                    <strong>{habit.name}</strong><span>{streak > 0 ? `${streak} ${streak === 1 ? "день" : "дней"} подряд` : "Начать серию"}</span>
+                    <strong>{habit.name}</strong><span>{streak > 0 ? `${streak} ${streak === 1 ? "шаг" : "шагов"} подряд · ${Math.round((habitProgress?.progress ?? 0) * 100)}% роста` : `${Math.round((habitProgress?.progress ?? 0) * 100)}% роста растения`}</span>
                   </button>
                   <button className="habit-remove" aria-label={`Удалить привычку: ${habit.name}`} onClick={() => removeHabit(habit.id)}>×</button>
                 </article>
@@ -377,7 +357,7 @@ export default function Home() {
         <section className="panel garden-panel" aria-labelledby="garden-title">
           <div className="garden-heading">
             <div><p className="eyebrow">Живой сад</p><h2 id="garden-title">Твоё место силы</h2></div>
-            <span className="level-badge">День роста {gardenDay} из 30</span>
+            <span className="level-badge">Сад вырос на {gardenDay}%</span>
           </div>
 
           <div className={`garden-scene ${isResting ? "is-resting" : ""} ${isWilting ? "is-wilting" : ""}`}>
@@ -393,7 +373,7 @@ export default function Home() {
           <div className="growth-footer">
             <div><strong>{gardenProgress >= 1 ? "Первый сезон в полном цвету" : `${gardenPercent}% месячного пути`}</strong><span>Ствол, ветви, листья и цветы растут плавно — без скачков между картинками.</span></div>
             <div className="garden-actions">
-              <span className="month-counter">{gardenDay}/30 дней</span>
+              <span className="month-counter">{gardenDay}% сада</span>
               <button className="walk-button" onClick={() => setShowWalk(true)}><span aria-hidden="true">↗</span> Войти в сад</button>
               {(accountStatus === "connected" || accountStatus === "saving" || accountStatus === "signed-out") && <button className="visit-button" onClick={openCommunity}>Сады друзей</button>}
             </div>
@@ -442,15 +422,7 @@ export default function Home() {
         </aside>
       </section>
 
-      {showAdd && <div className="modal-backdrop" role="presentation"><form className="habit-modal" onSubmit={addHabit} aria-labelledby="new-habit-title">
-        <button className="modal-close" type="button" onClick={() => setShowAdd(false)} aria-label="Закрыть">×</button>
-        <p className="eyebrow">Новое семечко</p><h2 id="new-habit-title">Добавить привычку</h2>
-        <label className="field-label" htmlFor="habit-name">Что хочешь делать?</label>
-        <input id="habit-name" autoFocus maxLength={42} placeholder="Например, медитировать 5 минут" value={newName} onChange={(event) => setNewName(event.target.value)} />
-        <span className="field-label">Выбери символ</span><div className="choice-row" aria-label="Символ привычки">{ICONS.map((icon) => <button type="button" className={newIcon === icon ? "selected" : ""} aria-label={`Выбрать ${icon}`} aria-pressed={newIcon === icon} onClick={() => setNewIcon(icon)} key={icon}>{icon}</button>)}</div>
-        <span className="field-label">Цвет</span><div className="color-row" aria-label="Цвет привычки">{COLORS.map((color) => <button type="button" className={newColor === color ? "selected" : ""} style={{ background: color }} aria-label={`Выбрать цвет ${color}`} aria-pressed={newColor === color} onClick={() => setNewColor(color)} key={color} />)}</div>
-        <button className="modal-submit" type="submit" disabled={!newName.trim()}>Посадить привычку <span>→</span></button>
-      </form></div>}
+      {showAdd && <HabitWizard onClose={() => setShowAdd(false)} onCreate={addHabit} />}
 
       {showAchievements && <div className="modal-backdrop" role="presentation"><section className="achievement-modal" role="dialog" aria-modal="true" aria-labelledby="achievements-title">
         <button className="modal-close" type="button" onClick={() => setShowAchievements(false)} aria-label="Закрыть">×</button>
@@ -477,7 +449,7 @@ export default function Home() {
       {showWalk && <div className="walk-backdrop" role="presentation">
         <section className="walk-modal" role="dialog" aria-modal="true" aria-labelledby="walk-title">
           <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} explore label="Прогулка по своему живому саду" />
-          <div className="walk-header"><div><p>Твой живой сад</p><h2 id="walk-title">Прогулка · день {gardenDay} из 30</h2></div><button onClick={() => setShowWalk(false)} aria-label="Выйти из сада">×</button></div>
+          <div className="walk-header"><div><p>Твой живой сад</p><h2 id="walk-title">Прогулка · рост {gardenDay}%</h2></div><button onClick={() => setShowWalk(false)} aria-label="Выйти из сада">×</button></div>
           <div className="walk-progress"><span style={{ width: `${gardenPercent}%` }} /><b>{gardenPercent}% месячного роста</b></div>
         </section>
       </div>}
