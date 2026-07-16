@@ -223,6 +223,12 @@ export function evaluateHabit(habit: DomainHabit, today: DateKey): HabitMetrics 
   };
 }
 
+export function evaluateHabitRange(habit: DomainHabit, from: DateKey, to: DateKey, today: DateKey): HabitMetrics {
+  const season: HabitSeason = { ...habit.season, startsOn: compareDate(habit.season.startsOn, from) < 0 ? from : habit.season.startsOn, endsOn: compareDate(habit.season.endsOn, to) > 0 ? to : habit.season.endsOn };
+  if (compareDate(season.startsOn, season.endsOn) > 0) return { planned: 0, completed: 0, missed: 0, progress: 0, health: 100, currentStreak: 0, bestStreak: 0, consecutiveMisses: 0 };
+  return evaluateHabit({ ...habit, season }, today);
+}
+
 export function canEditCompletion(target: DateKey, today: DateKey, daysBack = 3) {
   return compareDate(target, today) <= 0 && compareDate(target, addDays(today, -daysBack)) >= 0;
 }
@@ -272,4 +278,3 @@ export function makeSeason(start: DateKey, durationDays: number, rule: ScheduleR
     scheduleVersions: [{ id: `${id}-schedule-1`, effectiveFrom: start, rule }],
   };
 }
-

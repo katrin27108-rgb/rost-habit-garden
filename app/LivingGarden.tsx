@@ -10,6 +10,7 @@ export type GardenPlant = {
   health: number;
   slot: number;
   color: string;
+  fertilized?: boolean;
 };
 
 type LivingGardenProps = {
@@ -383,7 +384,7 @@ export default function LivingGarden({
         }
       }
 
-      const bloom = smoothstep(.68, 1, growth) * health;
+      const bloom = Math.max(smoothstep(.68, 1, growth) * health, plant.fertilized ? .72 : 0);
       if (plant.kind === "fern") {
         for (let frond = -3; frond <= 3; frond += 1) {
           context.strokeStyle = `hsla(${106 + frond * 3} 45% 38% / ${.45 + health * .5})`; context.lineWidth = 2.3;
@@ -462,6 +463,7 @@ export default function LivingGarden({
       if (document.hidden) { frame = requestAnimationFrame(draw); return; }
       shownProgressRef.current += (progressRef.current - shownProgressRef.current) * Math.min(.09, dt * .0027);
       const gardenPlants = plantsRef.current;
+      const lightMode = document.documentElement.dataset.gardenQuality === "light";
       const growth = gardenPlants.length ? gardenPlants.reduce((sum, plant) => sum + plant.progress, 0) / gardenPlants.length : shownProgressRef.current;
       const plantHealth = gardenPlants.length ? gardenPlants.reduce((sum, plant) => sum + plant.health, 0) / gardenPlants.length / 100 : 1;
       const rain = gardenPlants.length ? clamp((.72 - plantHealth) * 1.8) : clamp((quietDays - 1) / 5);
@@ -583,7 +585,7 @@ export default function LivingGarden({
       if (explore) drawWalker(zoom, time, isMoving);
 
       const life = smoothstep(.36, .78, growth) * health;
-      for (let index = 0; index < (reducedMotion ? 0 : fireflies.length * life); index += 1) {
+      for (let index = 0; index < (reducedMotion || lightMode ? 0 : fireflies.length * life); index += 1) {
         const fly = fireflies[index];
         const point = project(fly.x + Math.sin(time * .0007 + index) * 24, fly.y - 110 + Math.cos(time * .0009 + index * 2) * 32, zoom);
         const alpha = (.18 + .64 * Math.abs(Math.sin(time * .002 + index))) * life;
@@ -617,7 +619,7 @@ export default function LivingGarden({
         context.strokeStyle = `rgba(222,239,229,${.18 + rain * .42})`;
         context.lineWidth = 1;
         const rainOffset = (time * .42) % 70;
-        for (let drop = 0; drop < (reducedMotion ? 18 : 52) * rain; drop += 1) {
+        for (let drop = 0; drop < (reducedMotion || lightMode ? 18 : 52) * rain; drop += 1) {
           const x = ((drop * 83) % (width + 80)) - 40;
           const y = ((drop * 137 + rainOffset) % (height + 80)) - 40;
           context.beginPath();

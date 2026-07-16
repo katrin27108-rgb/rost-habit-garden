@@ -13,6 +13,7 @@ import {
 } from "../lib/domain.ts";
 import { migrateLegacyHabits } from "../lib/app-model.ts";
 import { mergeOperations } from "../lib/offline-store.ts";
+import { SUPPORT_MESSAGES, messageForDay } from "../lib/messages.ts";
 
 function habit(rule: ScheduleRule, completions: DateKey[], startsOn: DateKey = "2026-07-01", duration = 14): DomainHabit {
   const season = makeSeason(startsOn, duration, rule, "season-1");
@@ -117,4 +118,11 @@ test("sync queue ignores server-confirmed and duplicate operations", () => {
     { ...base, operationId: "two", createdAt: "2026-07-16T11:00:00Z" },
   ];
   assert.deepEqual(mergeOperations(operations, new Set(["two"])).map((item) => item.operationId), ["one"]);
+});
+
+test("warm message library has 120 variants and avoids recent repeats", () => {
+  assert.equal(SUPPORT_MESSAGES.length, 120);
+  const first = messageForDay("2026-07-16");
+  const next = messageForDay("2026-07-16", [first.code]);
+  assert.notEqual(first.code, next.code);
 });

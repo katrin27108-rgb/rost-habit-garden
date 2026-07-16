@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     totalCompletions: Math.max(0, Number(payload.totalCompletions) || 0),
     bestStreak: Math.max(0, Number(payload.bestStreak) || 0),
     gardenStage: Math.min(4, Math.max(1, Number(payload.gardenStage) || 1)),
-    isPublic: true,
+    isPublic: false,
     updatedAt: new Date().toISOString(),
   };
 

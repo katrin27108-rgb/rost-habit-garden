@@ -4,8 +4,11 @@ import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { isStoredHabit, migrateLegacyHabits, metricsForHabit, createStoredHabit, BACKUP_STORAGE_KEY, LEGACY_STORAGE_KEY, STORAGE_KEY, type LegacyHabit, type NewHabitInput, type StoredHabit } from "../lib/app-model";
 import type { DateKey } from "../lib/domain";
 import { enqueueOperation, loadHabitSnapshot, newOperation, saveHabitSnapshot } from "../lib/offline-store";
+import { messageForDay } from "../lib/messages";
 import HabitWizard from "./HabitWizard";
 import LivingGarden, { type GardenPlant } from "./LivingGarden";
+import StatsPanel from "./StatsPanel";
+import SettingsModal from "./SettingsModal";
 
 type Habit = StoredHabit;
 
@@ -15,12 +18,14 @@ type Achievement = {
   title: string;
   description: string;
   unlocked: boolean;
+  reward: number;
 };
 
 type CommunityGarden = {
   publicId: string;
   displayName: string;
-  habits: Habit[];
+  plants: GardenPlant[];
+  plantCount: number;
   totalCompletions: number;
   bestStreak: number;
   gardenStage: number;
@@ -28,6 +33,8 @@ type CommunityGarden = {
 };
 
 type AccountStatus = "checking" | "unavailable" | "signed-out" | "connected" | "saving";
+type RewardState = { spent: number; inventory: string[]; fertilizerUntil?: string };
+const SHOP = [{ code: "fertilizer", title: "Удобрение", icon: "✨", price: 20 }, { code: "flower", title: "Декоративный цветок", icon: "🌷", price: 25 }, { code: "lantern", title: "Фонарь", icon: "🏮", price: 40 }, { code: "feeder", title: "Кормушка", icon: "🐦", price: 60 }, { code: "bench", title: "Скамейка", icon: "🪑", price: 80 }, { code: "fountain", title: "Фонтан", icon: "⛲", price: 150 }];
 
 const starterLegacyHabits: LegacyHabit[] = [
   { id: "water", name: "Стакан воды", icon: "💧", color: "#b9d8cf", completions: [] },
@@ -41,13 +48,6 @@ function dateKey(date = new Date()): DateKey {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}` as DateKey;
-}
-
-function shiftDate(days: number) {
-  const date = new Date();
-  date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() + days);
-  return date;
 }
 
 function daysSince(key: string | undefined) {
@@ -74,6 +74,8 @@ export default function Home() {
   const [burst, setBurst] = useState(0);
   const [showWalk, setShowWalk] = useState(false);
   const [focusPlantId, setFocusPlantId] = useState<string>();
+  const [showSettings, setShowSettings] = useState(false);
+  const [rewardState, setRewardState] = useState<RewardState>({ spent: 0, inventory: [] });
 
   const today = dateKey();
   const visibleHabits = habits.filter((habit) => habit.status !== "deleted");
@@ -83,43 +85,37 @@ export default function Home() {
   const totalCompletions = visibleHabits.reduce((sum, habit) => sum + habit.completions.length, 0);
   const metrics = useMemo(() => new Map(visibleHabits.map((habit) => [habit.id, metricsForHabit(habit, today)])), [habits, today]);
   const bestStreak = Math.max(0, ...visibleHabits.map((habit) => metrics.get(habit.id)?.bestStreak ?? 0));
-  const energy = totalCompletions * 10;
   const gardenProgress = visibleHabits.length ? visibleHabits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / visibleHabits.length : 0;
   const gardenPercent = Math.round(gardenProgress * 100);
   const gardenDay = gardenPercent;
   const gardenPlants = useMemo<GardenPlant[]>(() => visibleHabits.map((habit) => ({
     id: habit.id, kind: habit.plantKind, slot: habit.gardenSlot, color: habit.color,
     progress: metrics.get(habit.id)?.progress ?? 0, health: metrics.get(habit.id)?.health ?? 100,
-  })), [habits, metrics]);
+    fertilized: Boolean(rewardState.fertilizerUntil && new Date(rewardState.fertilizerUntil) > new Date()),
+  })), [habits, metrics, rewardState.fertilizerUntil]);
   const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
   const allCompletionDates = habits.flatMap((habit) => habit.completions).sort();
   const quietDays = daysSince(allCompletionDates.at(-1));
   const isResting = totalCompletions > 0 && doneToday.length === 0 && quietDays >= 2;
   const isWilting = totalCompletions > 0 && doneToday.length === 0 && quietDays >= 5;
 
-  const week = useMemo(() => {
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = shiftDate(index - 6);
-      const key = dateKey(date);
-      const count = visibleHabits.filter((habit) => habit.completions.includes(key)).length;
-      return {
-        key,
-        count,
-        label: new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date).replace(".", ""),
-        day: date.getDate(),
-      };
-    });
-  }, [habits]);
-
   const achievements: Achievement[] = [
-    { id: "seed", icon: "🌱", title: "Первый росток", description: "Выполнено первое действие", unlocked: totalCompletions >= 1 },
-    { id: "day", icon: "☀️", title: "Зелёный день", description: "Все привычки за день", unlocked: todayProgress === 100 && visibleHabits.length > 0 },
-    { id: "rhythm", icon: "🔥", title: "Ритм найден", description: "Серия из 3 дней", unlocked: bestStreak >= 3 },
-    { id: "week", icon: "🕊️", title: "Неделя заботы", description: "Серия из 7 дней", unlocked: bestStreak >= 7 },
-    { id: "garden", icon: "🌼", title: "Садовник", description: "25 выполненных действий", unlocked: totalCompletions >= 25 },
-    { id: "bloom", icon: "🍎", title: "Полное цветение", description: "Завершены 30 дней заботы о саде", unlocked: gardenProgress >= 1 },
+    { id: "seed", icon: "🌱", title: "Первое семечко", description: "Посажена первая привычка", unlocked: visibleHabits.length >= 1, reward: 5 },
+    { id: "rhythm3", icon: "🔥", title: "Три шага", description: "Серия из 3 действий", unlocked: bestStreak >= 3, reward: 5 },
+    { id: "rhythm7", icon: "🕊️", title: "Неделя ритма", description: "Серия из 7 действий", unlocked: bestStreak >= 7, reward: 10 },
+    { id: "rhythm14", icon: "🌿", title: "Две недели", description: "Серия из 14 действий", unlocked: bestStreak >= 14, reward: 15 },
+    { id: "rhythm30", icon: "🌳", title: "Месяц заботы", description: "Серия из 30 действий", unlocked: bestStreak >= 30, reward: 30 },
+    { id: "day", icon: "☀️", title: "Идеальный день", description: "Весь план дня выполнен", unlocked: todayProgress === 100 && visibleHabits.length > 0, reward: 5 },
+    { id: "week", icon: "✨", title: "Идеальная неделя", description: "Весь недельный план выполнен", unlocked: bestStreak >= 7, reward: 20 },
+    { id: "return", icon: "🌦️", title: "Возвращение", description: "Сад ожил после тихих дней", unlocked: quietDays >= 2 && doneToday.length > 0, reward: 10 },
+    { id: "adult", icon: "🌸", title: "Взрослое растение", description: "Первое растение полностью выросло", unlocked: [...metrics.values()].some((item) => item.progress >= 1), reward: 20 },
+    { id: "grove", icon: "🌲", title: "Роща", description: "Пять взрослых растений", unlocked: [...metrics.values()].filter((item) => item.progress >= 1).length >= 5, reward: 50 },
+    { id: "variety", icon: "💐", title: "Разнообразный сад", description: "В саду растут пять разных видов", unlocked: new Set(visibleHabits.map((habit) => habit.plantKind)).size >= 5, reward: 25 },
+    { id: "secret", icon: "❔", title: "Секретный след", description: "Откроется в особенный момент", unlocked: false, reward: 15 },
   ];
   const unlockedCount = achievements.filter((achievement) => achievement.unlocked).length;
+  const earnedStars = totalCompletions + achievements.filter((achievement) => achievement.unlocked).reduce((sum, achievement) => sum + achievement.reward, 0);
+  const energy = Math.max(0, earnedStars - rewardState.spent);
 
   const support = useMemo(() => {
     if (visibleHabits.length === 0) {
@@ -152,9 +148,10 @@ export default function Home() {
         text: "Пауза не отменяет твой путь. Одной небольшой отметки сегодня достаточно, чтобы в сад снова вернулся свет.",
       };
     }
+    const daily = messageForDay(today);
     return {
       title: bestStreak > 0 ? "Твой ритм всё ещё с тобой" : "Я рядом — начнём без давления",
-      text: "Выбери самое лёгкое дело. Можно сделать сокращённую версию — две минуты тоже считаются и помогают вернуться к себе.",
+      text: daily.text,
     };
   }, [bestStreak, doneToday.length, visibleHabits.length, isWilting, todayProgress]);
 
@@ -210,6 +207,12 @@ export default function Home() {
       void saveHabitSnapshot(habits);
     }
   }, [habits, hydrated]);
+
+  useEffect(() => {
+    try { const saved = localStorage.getItem("rost-rewards-v1"); if (saved) setRewardState(JSON.parse(saved)); } catch {}
+  }, []);
+
+  useEffect(() => { if (hydrated) localStorage.setItem("rost-rewards-v1", JSON.stringify(rewardState)); }, [hydrated, rewardState]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -313,6 +316,18 @@ export default function Home() {
     void enqueueOperation(newOperation("habit.delete", id, {}));
   }
 
+  function buyItem(code: string, price: number) {
+    if (energy < price) { setToast("Пока не хватает звёзд — они придут с заботой о привычках"); window.setTimeout(() => setToast(""), 2600); return; }
+    const operation = newOperation("purchase", code, { itemCode: code });
+    setRewardState((current) => ({
+      spent: current.spent + price, inventory: [...current.inventory, code],
+      fertilizerUntil: code === "fertilizer" ? new Date(Date.now() + 86_400_000).toISOString() : current.fertilizerUntil,
+    }));
+    void enqueueOperation(operation);
+    setToast(code === "fertilizer" ? "Сад сияет — цветение включено на 24 часа ✨" : "Новое украшение ждёт своего места в саду");
+    window.setTimeout(() => setToast(""), 2600);
+  }
+
   const formattedDate = new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
     day: "numeric",
@@ -340,6 +355,7 @@ export default function Home() {
           </button>
           <span className="energy-pill"><b>✦</b> {energy}</span>
           <span className="streak-pill"><b>🔥</b> {bestStreak} дн.</span>
+          <button className="settings-pill" onClick={() => setShowSettings(true)} aria-label="Настройки">⚙</button>
         </div>
       </header>
 
@@ -431,15 +447,7 @@ export default function Home() {
             <small>Открыто {unlockedCount} из {achievements.length}</small>
           </section>
 
-          <section className="panel week-panel">
-            <div className="section-heading compact"><div><p className="eyebrow">Последние 7 дней</p><h2>Неделя</h2></div><span className="week-total">{week.reduce((sum, day) => sum + day.count, 0)} ✓</span></div>
-            <div className="week-chart" aria-label="Выполнения по дням недели">
-              {week.map((day) => {
-                const height = visibleHabits.length ? Math.max(8, (day.count / visibleHabits.length) * 100) : 8;
-                return <div className={`week-day ${day.key === today ? "is-today" : ""}`} key={day.key}><div className="bar-track"><span style={{ height: `${height}%` }} /></div><b>{day.label}</b><small>{day.day}</small></div>;
-              })}
-            </div>
-          </section>
+          <StatsPanel habits={visibleHabits} today={today} />
 
           <section className="quick-stats" aria-label="Итоги">
             <div><span>Выполнено действий</span><strong>{totalCompletions}</strong></div>
@@ -454,21 +462,25 @@ export default function Home() {
         <button className="modal-close" type="button" onClick={() => setShowAchievements(false)} aria-label="Закрыть">×</button>
         <p className="eyebrow">Твоя история роста</p><h2 id="achievements-title">Достижения</h2>
         <p className="modal-intro">Это не оценки. Это следы того, как ты заботился о себе — даже понемногу.</p>
-        <div className="achievement-grid">{achievements.map((achievement) => <article className={achievement.unlocked ? "unlocked" : "locked"} key={achievement.id}><span>{achievement.unlocked ? achievement.icon : "·"}</span><div><strong>{achievement.title}</strong><p>{achievement.description}</p></div><b>{achievement.unlocked ? "Открыто" : "Впереди"}</b></article>)}</div>
+        <div className="achievement-grid">{achievements.map((achievement) => <article className={achievement.unlocked ? "unlocked" : "locked"} key={achievement.id}><span>{achievement.unlocked ? achievement.icon : "·"}</span><div><strong>{achievement.title}</strong><p>{achievement.description}</p></div><b>{achievement.unlocked ? `+${achievement.reward} ✦` : "Впереди"}</b></article>)}</div>
+        <div className="shop-heading"><div><p className="eyebrow">Для твоего сада</p><h3>Магазин</h3></div><strong>✦ {energy}</strong></div>
+        <div className="shop-grid">{SHOP.map((item) => <button key={item.code} disabled={energy < item.price} onClick={() => buyItem(item.code, item.price)}><span>{item.icon}</span><b>{item.title}</b><small>{item.price} ✦</small></button>)}</div>
       </section></div>}
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {showCommunity && <div className="modal-backdrop" role="presentation"><section className="community-modal" role="dialog" aria-modal="true" aria-labelledby="community-title">
         <button className="modal-close" type="button" onClick={() => setShowCommunity(false)} aria-label="Закрыть">×</button>
         {selectedGarden ? <>
           <button className="back-button" onClick={() => setSelectedGarden(null)}>← Все сады</button>
           <p className="eyebrow">В гостях</p><h2 id="community-title">Сад: {selectedGarden.displayName}</h2>
-          <div className="visited-garden"><LivingGarden progress={Math.min(1, selectedGarden.totalCompletions / Math.max(30, selectedGarden.habits.length * 30))} todayEnergy={.7} quietDays={0} burst={0} label={`Живой сад пользователя ${selectedGarden.displayName}`} /><div className="visited-garden-caption"><span>Живой сад</span><strong>{selectedGarden.totalCompletions} добрых действий</strong></div></div>
-          <div className="visitor-stats"><div><span>Лучший ритм</span><strong>{selectedGarden.bestStreak} дн.</strong></div><div><span>Посажено привычек</span><strong>{selectedGarden.habits.length}</strong></div></div>
+          <div className="visited-garden"><LivingGarden progress={selectedGarden.plants.length ? selectedGarden.plants.reduce((sum, plant) => sum + plant.progress, 0) / selectedGarden.plants.length : 0} plants={selectedGarden.plants} todayEnergy={.7} quietDays={0} burst={0} label={`Живой сад пользователя ${selectedGarden.displayName}`} /><div className="visited-garden-caption"><span>Живой сад</span><strong>{selectedGarden.totalCompletions} добрых действий</strong></div></div>
+          <div className="visitor-stats"><div><span>Лучший ритм</span><strong>{selectedGarden.bestStreak} дн.</strong></div><div><span>Растений в саду</span><strong>{selectedGarden.plantCount}</strong></div></div>
           <p className="visitor-note">Ты здесь как тихий гость: можешь смотреть и вдохновляться, но чужие привычки остаются только у хозяина сада.</p>
         </> : <>
           <p className="eyebrow">Сообщество</p><h2 id="community-title">Прогулка по садам</h2>
           <p className="modal-intro">Здесь виден только сам сад и общий прогресс. Личные данные и названия привычек не раскрываются в списке.</p>
-          {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся другие зарегистрированные садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><i className="garden-card-seed" aria-hidden="true">🌳</i><span><strong>{garden.displayName}</strong><small>{Math.round(Math.min(1, garden.totalCompletions / Math.max(30, garden.habits.length * 30)) * 100)}% роста · {garden.totalCompletions} действий</small></span></button>)}</div>}
+          {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся приглашённые садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><i className="garden-card-seed" aria-hidden="true">🌳</i><span><strong>{garden.displayName}</strong><small>{garden.plantCount} растений · {garden.totalCompletions} действий</small></span></button>)}</div>}
         </>}
       </section></div>}
 
