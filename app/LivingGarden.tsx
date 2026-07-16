@@ -1,6 +1,16 @@
 "use client";
 
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef } from "react";
+import type { PlantKind } from "../lib/domain";
+
+export type GardenPlant = {
+  id: string;
+  kind: PlantKind;
+  progress: number;
+  health: number;
+  slot: number;
+  color: string;
+};
 
 type LivingGardenProps = {
   progress: number;
@@ -9,6 +19,8 @@ type LivingGardenProps = {
   burst: number;
   explore?: boolean;
   label?: string;
+  plants?: GardenPlant[];
+  focusPlantId?: string;
 };
 
 type Point = { x: number; y: number; seed: number; threshold: number };
@@ -41,6 +53,14 @@ const grass = seededPoints(260, 1874, 940, 520);
 const flowers = seededPoints(120, 4407, 820, 430);
 const fireflies = seededPoints(34, 9031, 680, 350);
 const stones = seededPoints(22, 2718, 850, 460);
+const treeKinds = new Set<PlantKind>(["oak", "cherry", "birch", "willow"]);
+
+function plantPosition(slot: number) {
+  const column = slot % 10;
+  const row = Math.floor(slot / 10) % 5;
+  const jitter = ((slot * 47) % 61) - 30;
+  return { x: (column - 4.5) * 190 + jitter, y: -15 + row * 112 + ((slot * 29) % 35) };
+}
 
 export default function LivingGarden({
   progress,
@@ -49,6 +69,8 @@ export default function LivingGarden({
   burst,
   explore = false,
   label = "Живой сад, который растёт вместе с привычками",
+  plants = [],
+  focusPlantId,
 }: LivingGardenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const progressRef = useRef(clamp(progress));
@@ -60,6 +82,11 @@ export default function LivingGarden({
   const targetRef = useRef<{ x: number; y: number } | null>(null);
   const keysRef = useRef(new Set<string>());
   const parallaxRef = useRef({ x: 0, y: 0 });
+  const plantsRef = useRef(plants);
+  const focusPlantRef = useRef(focusPlantId);
+
+  useEffect(() => { plantsRef.current = plants; }, [plants]);
+  useEffect(() => { focusPlantRef.current = focusPlantId; }, [focusPlantId]);
 
   useEffect(() => {
     progressRef.current = clamp(progress);
@@ -77,6 +104,7 @@ export default function LivingGarden({
     if (!canvas) return;
     const context = canvas.getContext("2d");
     if (!context) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     let width = 1;
     let height = 1;
@@ -88,7 +116,7 @@ export default function LivingGarden({
       const rect = canvas.getBoundingClientRect();
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
-      dpr = Math.min(2, window.devicePixelRatio || 1);
+      dpr = Math.min(width < 700 ? 1.5 : 2, window.devicePixelRatio || 1);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
     };
@@ -316,6 +344,82 @@ export default function LivingGarden({
       context.restore();
     };
 
+    const drawHerbPlant = (plant: GardenPlant, x: number, y: number, zoom: number, time: number) => {
+      const point = project(x, y, zoom);
+      const growth = clamp(plant.progress);
+      const health = clamp(plant.health / 100);
+      const scale = zoom * (.7 + ((plant.slot * 13) % 17) / 50);
+      const height = 12 + growth * (plant.kind === "sunflower" ? 142 : 78);
+      const sway = Math.sin(time * .0011 + plant.slot) * (1.2 + growth * 2.4);
+      const hueByKind: Record<PlantKind, number> = { oak: 95, cherry: 345, birch: 86, willow: 102, lavender: 268, chamomile: 48, sunflower: 45, peony: 340, fern: 112, hydrangea: 215, rosemary: 125, strawberry: 355 };
+      const hue = hueByKind[plant.kind];
+      context.save();
+      context.translate(point.x, point.y);
+      context.scale(scale, scale);
+      context.globalAlpha = .96;
+      context.fillStyle = "rgba(34,56,35,.2)";
+      context.beginPath(); context.ellipse(0, 4, 19 + growth * 15, 6 + growth * 3, 0, 0, Math.PI * 2); context.fill();
+      if (growth < .055) {
+        context.fillStyle = "#80603e"; context.beginPath(); context.ellipse(0, -2, 5, 3.4, -.25, 0, Math.PI * 2); context.fill();
+        context.strokeStyle = "rgba(235,222,177,.65)"; context.lineWidth = 1;
+        context.beginPath(); context.moveTo(0, 0); context.quadraticCurveTo(-4, 7, 2, 13); context.stroke();
+        context.restore(); return;
+      }
+      const wilt = (1 - health) * 18;
+      context.strokeStyle = health < .55 ? "#71805b" : `hsl(${108 + (plant.slot % 18)} 42% 39%)`;
+      context.lineWidth = plant.kind === "rosemary" ? 2 : 3 + growth * 2;
+      context.lineCap = "round";
+      context.beginPath(); context.moveTo(0, 1); context.quadraticCurveTo(sway * .5, -height * .55, sway, -height + wilt); context.stroke();
+
+      const leafPairs = Math.max(1, Math.floor(growth * (plant.kind === "rosemary" ? 11 : 6)));
+      for (let index = 0; index < leafPairs; index += 1) {
+        const level = (index + 1) / (leafPairs + 1);
+        const ly = -height * level + wilt * level;
+        const size = 4 + growth * (plant.kind === "fern" ? 13 : 7);
+        for (const side of [-1, 1]) {
+          context.save(); context.translate(sway * level, ly); context.rotate(side * (.55 + (1 - health) * .25));
+          context.fillStyle = health < .55 ? "#84906a" : `hsl(${105 + (index % 15)} ${38 + health * 24}% ${38 + health * 12}%)`;
+          context.beginPath(); context.ellipse(side * size, 0, size * 1.25, Math.max(1.8, size * .38), 0, 0, Math.PI * 2); context.fill(); context.restore();
+        }
+      }
+
+      const bloom = smoothstep(.68, 1, growth) * health;
+      if (plant.kind === "fern") {
+        for (let frond = -3; frond <= 3; frond += 1) {
+          context.strokeStyle = `hsla(${106 + frond * 3} 45% 38% / ${.45 + health * .5})`; context.lineWidth = 2.3;
+          context.beginPath(); context.moveTo(0, 0); context.quadraticCurveTo(frond * 10, -height * .52, frond * 16 + sway, -height * (.72 + Math.abs(frond) * .035)); context.stroke();
+        }
+      } else if (bloom > .02) {
+        const blossoms = plant.kind === "lavender" || plant.kind === "hydrangea" ? 9 : plant.kind === "strawberry" ? 5 : 1;
+        for (let flower = 0; flower < blossoms; flower += 1) {
+          const angle = flower * 2.399;
+          const radius = blossoms === 1 ? 0 : 5 + Math.sqrt(flower) * 4;
+          const fx = sway + Math.cos(angle) * radius;
+          const fy = -height + wilt + Math.sin(angle) * radius * .55;
+          const petals = plant.kind === "sunflower" ? 14 : plant.kind === "chamomile" ? 10 : 6;
+          context.save(); context.translate(fx, fy); context.globalAlpha = .45 + bloom * .55;
+          for (let petal = 0; petal < petals; petal += 1) {
+            context.rotate(Math.PI * 2 / petals); context.fillStyle = plant.kind === "chamomile" ? "#fffdf2" : `hsl(${hue + (flower % 3) * 7} 72% ${62 + health * 15}%)`;
+            context.beginPath(); context.ellipse(0, -(4 + growth * 5), 2.1 + growth * 1.5, 5 + growth * 4, 0, 0, Math.PI * 2); context.fill();
+          }
+          context.fillStyle = plant.kind === "sunflower" ? "#6c482a" : "#f2cf62"; context.beginPath(); context.arc(0, 0, 3 + growth * 2.5, 0, Math.PI * 2); context.fill(); context.restore();
+        }
+        if (plant.kind === "strawberry" && growth > .84) {
+          context.fillStyle = "#d94b44"; context.beginPath(); context.ellipse(-12, -height * .32, 5, 7, 0, 0, Math.PI * 2); context.ellipse(13, -height * .46, 5, 7, 0, 0, Math.PI * 2); context.fill();
+        }
+      }
+      context.restore();
+    };
+
+    const drawGardenPlant = (plant: GardenPlant, zoom: number, time: number) => {
+      const position = plantPosition(plant.slot);
+      if (treeKinds.has(plant.kind)) {
+        drawTree(position.x, position.y, zoom * (plant.kind === "willow" ? .86 : .72), plant.progress, plant.health / 100, time + plant.slot * 73);
+      } else {
+        drawHerbPlant(plant, position.x, position.y, zoom, time);
+      }
+    };
+
     const drawWalker = (zoom: number, time: number, moving: boolean) => {
       const point = project(walkerRef.current.x, walkerRef.current.y, zoom);
       const bounce = moving ? Math.sin(time * .012) * 2.2 : Math.sin(time * .0022) * .7;
@@ -355,10 +459,13 @@ export default function LivingGarden({
     const draw = (time: number) => {
       const dt = Math.min(40, time - previousTime);
       previousTime = time;
+      if (document.hidden) { frame = requestAnimationFrame(draw); return; }
       shownProgressRef.current += (progressRef.current - shownProgressRef.current) * Math.min(.09, dt * .0027);
-      const growth = shownProgressRef.current;
-      const rain = clamp((quietDays - 1) / 5);
-      const health = clamp(.72 + todayEnergy * .27 - rain * .32, .36, 1);
+      const gardenPlants = plantsRef.current;
+      const growth = gardenPlants.length ? gardenPlants.reduce((sum, plant) => sum + plant.progress, 0) / gardenPlants.length : shownProgressRef.current;
+      const plantHealth = gardenPlants.length ? gardenPlants.reduce((sum, plant) => sum + plant.health, 0) / gardenPlants.length / 100 : 1;
+      const rain = gardenPlants.length ? clamp((.72 - plantHealth) * 1.8) : clamp((quietDays - 1) / 5);
+      const health = gardenPlants.length ? plantHealth : clamp(.72 + todayEnergy * .27 - rain * .32, .36, 1);
       const zoom = (explore ? 1 : .98) * clamp(width / 720, .58, 1.15);
 
       let dx = 0;
@@ -466,15 +573,17 @@ export default function LivingGarden({
         drawFlower(point.x, point.y, zoom * (.46 + flower.seed * .54), 4 + ((index * 47) % 320), sway, reveal, health);
       }
 
-      drawTree(0, 52, zoom, growth, health, time);
-      drawTree(690, 65, zoom * .72, clamp(growth * .72 - .08), health, time + 740);
-      drawTree(-760, -10, zoom * .63, clamp(growth * .58 - .12), health, time + 1220);
+      if (gardenPlants.length) {
+        [...gardenPlants].sort((a, b) => plantPosition(a.slot).y - plantPosition(b.slot).y).forEach((plant) => drawGardenPlant(plant, zoom, time));
+      } else {
+        drawTree(0, 52, zoom, growth, health, time);
+      }
 
       const isMoving = movingByKeys || Boolean(targetRef.current);
       if (explore) drawWalker(zoom, time, isMoving);
 
       const life = smoothstep(.36, .78, growth) * health;
-      for (let index = 0; index < fireflies.length * life; index += 1) {
+      for (let index = 0; index < (reducedMotion ? 0 : fireflies.length * life); index += 1) {
         const fly = fireflies[index];
         const point = project(fly.x + Math.sin(time * .0007 + index) * 24, fly.y - 110 + Math.cos(time * .0009 + index * 2) * 32, zoom);
         const alpha = (.18 + .64 * Math.abs(Math.sin(time * .002 + index))) * life;
@@ -487,7 +596,9 @@ export default function LivingGarden({
       const pulseElapsed = time - pulseStartedRef.current;
       if (pulseElapsed >= 0 && pulseElapsed < 1800) {
         const pulse = pulseElapsed / 1800;
-        const treePoint = project(0, 0, zoom);
+        const focused = gardenPlants.find((plant) => plant.id === focusPlantRef.current);
+        const focusPosition = focused ? plantPosition(focused.slot) : { x: 0, y: 0 };
+        const treePoint = project(focusPosition.x, focusPosition.y, zoom);
         for (let sparkle = 0; sparkle < 26; sparkle += 1) {
           const angle = sparkle * 2.399 + pulse;
           const radius = 18 + pulse * (85 + (sparkle % 7) * 11);
@@ -506,7 +617,7 @@ export default function LivingGarden({
         context.strokeStyle = `rgba(222,239,229,${.18 + rain * .42})`;
         context.lineWidth = 1;
         const rainOffset = (time * .42) % 70;
-        for (let drop = 0; drop < 52 * rain; drop += 1) {
+        for (let drop = 0; drop < (reducedMotion ? 18 : 52) * rain; drop += 1) {
           const x = ((drop * 83) % (width + 80)) - 40;
           const y = ((drop * 137 + rainOffset) % (height + 80)) - 40;
           context.beginPath();

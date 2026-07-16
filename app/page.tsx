@@ -5,7 +5,7 @@ import { isStoredHabit, migrateLegacyHabits, metricsForHabit, createStoredHabit,
 import type { DateKey } from "../lib/domain";
 import { enqueueOperation, loadHabitSnapshot, newOperation, saveHabitSnapshot } from "../lib/offline-store";
 import HabitWizard from "./HabitWizard";
-import LivingGarden from "./LivingGarden";
+import LivingGarden, { type GardenPlant } from "./LivingGarden";
 
 type Habit = StoredHabit;
 
@@ -73,6 +73,7 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [burst, setBurst] = useState(0);
   const [showWalk, setShowWalk] = useState(false);
+  const [focusPlantId, setFocusPlantId] = useState<string>();
 
   const today = dateKey();
   const visibleHabits = habits.filter((habit) => habit.status !== "deleted");
@@ -86,6 +87,10 @@ export default function Home() {
   const gardenProgress = visibleHabits.length ? visibleHabits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / visibleHabits.length : 0;
   const gardenPercent = Math.round(gardenProgress * 100);
   const gardenDay = gardenPercent;
+  const gardenPlants = useMemo<GardenPlant[]>(() => visibleHabits.map((habit) => ({
+    id: habit.id, kind: habit.plantKind, slot: habit.gardenSlot, color: habit.color,
+    progress: metrics.get(habit.id)?.progress ?? 0, health: metrics.get(habit.id)?.health ?? 100,
+  })), [habits, metrics]);
   const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
   const allCompletionDates = habits.flatMap((habit) => habit.completions).sort();
   const quietDays = daysSince(allCompletionDates.at(-1));
@@ -285,6 +290,7 @@ export default function Home() {
     );
 
     if (!isDone) {
+      setFocusPlantId(id);
       setBurst((value) => value + 1);
       const nextCount = doneToday.length + 1;
       setToast(nextCount === visibleHabits.length ? "Сад расцвёл — день завершён 🌼" : `+10 энергии · «${habit.name}» дало саду жизнь`);
@@ -381,7 +387,7 @@ export default function Home() {
           </div>
 
           <div className={`garden-scene ${isResting ? "is-resting" : ""} ${isWilting ? "is-wilting" : ""}`}>
-            <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} />
+            <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} plants={gardenPlants} focusPlantId={focusPlantId} />
             <div className="garden-story">
               <span className="garden-mood">{isWilting ? "сад скучает" : isResting ? "сад отдыхает" : todayProgress === 100 ? "полное сияние" : "сад растёт"}</span>
               <strong>{gardenCopy.title}</strong>
@@ -468,7 +474,7 @@ export default function Home() {
 
       {showWalk && <div className="walk-backdrop" role="presentation">
         <section className="walk-modal" role="dialog" aria-modal="true" aria-labelledby="walk-title">
-          <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} explore label="Прогулка по своему живому саду" />
+          <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} plants={gardenPlants} focusPlantId={focusPlantId} explore label="Прогулка по своему живому саду" />
           <div className="walk-header"><div><p>Твой живой сад</p><h2 id="walk-title">Прогулка · рост {gardenDay}%</h2></div><button onClick={() => setShowWalk(false)} aria-label="Выйти из сада">×</button></div>
           <div className="walk-progress"><span style={{ width: `${gardenPercent}%` }} /><b>{gardenPercent}% месячного роста</b></div>
         </section>
