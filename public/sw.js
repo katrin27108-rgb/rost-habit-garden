@@ -1,4 +1,4 @@
-const CACHE = "rost-shell-v3-living-garden";
+const CACHE = "rost-shell-v4-personal-plants";
 const APP_ROOT = new URL("./", self.location.href).pathname;
 
 self.addEventListener("install", () => self.skipWaiting());

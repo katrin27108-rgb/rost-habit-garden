@@ -433,6 +433,7 @@ h2 { font-size: 24px; line-height: 1.08; }
 @media (max-width: 480px) {
   .brand { font-size: 19px; }
   .brand-mark { width: 28px; height: 28px; }
+  .settings-pill { width: 30px; height: 30px; }
   .streak-pill { display: none; }
   .sync-pill span { display: none; }
   .panel { border-radius: 23px; }
@@ -440,6 +441,11 @@ h2 { font-size: 24px; line-height: 1.08; }
   .garden-heading h2 { font-size: 21px; }
   .level-badge { padding: 7px 9px; font-size: 8px; }
   .garden-scene { min-height: 445px; margin-top: 16px; border-radius: 19px; }
+  .wizard-modal { min-height: calc(100vh - 24px); padding: 26px 16px 18px; border-radius: 22px; }
+  .duration-grid, .plant-grid { grid-template-columns: repeat(3,1fr); }
+  .plant-grid button { min-height: 72px; }
+  .wizard-actions .modal-submit { min-width: 150px; }
+  .shop-grid { grid-template-columns: repeat(2,1fr); }
   .live-indicator { top: 10px; left: 10px; }
   .garden-story { left: 13px; right: 13px; bottom: 17px; padding: 14px 14px 16px; }
   .garden-story strong { font-size: 15px; }
@@ -460,7 +466,7 @@ h2 { font-size: 24px; line-height: 1.08; }
   .garden-joystick { right: 12px; bottom: 26px; }
   .walk-progress { left: 14px; right: 14px; }
   .choice-row { grid-template-columns: repeat(4, 1fr); }
-  .habit-modal, .achievement-modal, .community-modal { padding: 29px 20px 22px; }
+  .habit-modal, .achievement-modal, .community-modal, .settings-modal { padding: 29px 20px 22px; }
   .achievement-grid article { grid-template-columns: 38px 1fr; }
   .achievement-grid article > b { grid-column: 2; width: max-content; }
   .community-grid { grid-template-columns: 1fr; }
