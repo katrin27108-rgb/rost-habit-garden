@@ -1,4 +1,17 @@
 {
+  "name": "Рост — живой трекер привычек",
+  "short_name": "Рост",
+  "description": "Привычки, от которых растёт твой сад.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f0e9",
+  "theme_color": "#f2f0e9",
+  "lang": "ru",
+  "orientation": "portrait-primary"
+}
+{
   "name": "Рост — трекер привычек",
   "short_name": "Рост",
   "description": "Привычки, от которых растёт твой сад.",
