@@ -221,6 +221,43 @@ h2 { font-size: 24px; line-height: 1.08; }
 .garden-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .visit-button { padding: 7px 10px; border: 1px solid #d8ddd1; border-radius: 100px; background: #fff; color: #52695e; font-size: 9px; font-weight: 800; cursor: pointer; transition: background .2s ease, transform .2s ease; }
 .visit-button:hover { transform: translateY(-1px); background: #f4f7ec; }
+.living-garden { position: absolute; inset: 0; overflow: hidden; background: #8db37a; }
+.living-garden canvas { width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+.living-garden.is-exploring canvas { cursor: crosshair; }
+.live-indicator { position: absolute; top: 14px; left: 14px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 100px; background: rgba(16,48,36,.48); color: #f6f9ed; font-size: 8px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; backdrop-filter: blur(10px); pointer-events: none; }
+.live-indicator i { width: 6px; height: 6px; border-radius: 50%; background: #dff08c; box-shadow: 0 0 0 4px rgba(223,240,140,.16), 0 0 14px #dff08c; animation: live-pulse 2s ease-in-out infinite; }
+.month-counter { padding: 6px 9px; border-radius: 100px; background: #f2f5e5; color: #617254 !important; font-size: 9px !important; font-weight: 850; }
+.walk-button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; border: 0; border-radius: 100px; background: var(--deep-green); color: #fff; font-size: 10px; font-weight: 850; cursor: pointer; box-shadow: 0 8px 20px rgba(23,62,50,.16); transition: transform .2s ease, box-shadow .2s ease; }
+.walk-button span { width: 19px; height: 19px; margin: 0; display: grid; place-items: center; border-radius: 50%; background: var(--lime); color: #435a27; font-size: 11px; }
+.walk-button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(23,62,50,.22); }
+.walk-hint { position: absolute; left: 22px; bottom: 25px; z-index: 4; max-width: 300px; padding: 13px 15px; border: 1px solid rgba(255,255,255,.24); border-radius: 15px; background: rgba(14,43,32,.63); color: #fff; backdrop-filter: blur(12px); pointer-events: none; }
+.walk-hint b, .walk-hint span { display: block; }
+.walk-hint b { font-size: 12px; }
+.walk-hint span { margin-top: 4px; color: rgba(255,255,255,.7); font-size: 9px; }
+.garden-joystick { position: absolute; right: 24px; bottom: 24px; z-index: 5; width: 122px; display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(2, 38px); gap: 4px; touch-action: none; }
+.garden-joystick button { border: 1px solid rgba(255,255,255,.3); border-radius: 12px; background: rgba(15,44,33,.66); color: #fff; font-size: 16px; font-weight: 800; backdrop-filter: blur(10px); cursor: pointer; user-select: none; }
+.garden-joystick button:active { background: #dff08c; color: #294735; transform: scale(.95); }
+.garden-joystick button:nth-child(1) { grid-column: 2; }
+.garden-joystick button:nth-child(2) { grid-column: 1; grid-row: 2; }
+.garden-joystick button:nth-child(3) { grid-column: 2; grid-row: 2; }
+.garden-joystick button:nth-child(4) { grid-column: 3; grid-row: 2; }
+
+.walk-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(8,25,18,.76); backdrop-filter: blur(14px); animation: fade-in .25s ease; }
+.walk-modal { width: min(1260px, 100%); height: min(800px, calc(100vh - 32px)); position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.22); border-radius: 30px; background: #6f9b67; box-shadow: 0 36px 110px rgba(5,20,13,.45); }
+.walk-header { position: absolute; top: 18px; left: 18px; right: 18px; z-index: 6; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; pointer-events: none; }
+.walk-header > div { padding: 12px 15px; border: 1px solid rgba(255,255,255,.28); border-radius: 16px; background: rgba(14,43,32,.6); color: #fff; backdrop-filter: blur(12px); }
+.walk-header p { margin: 0 0 4px; color: #dff08c; font-size: 8px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+.walk-header h2 { color: #fff; font-size: 18px; }
+.walk-header button { width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; background: rgba(14,43,32,.65); color: #fff; font-size: 25px; cursor: pointer; backdrop-filter: blur(12px); pointer-events: auto; }
+.walk-progress { position: absolute; left: 24px; right: 24px; bottom: 11px; z-index: 7; height: 4px; border-radius: 10px; background: rgba(255,255,255,.16); pointer-events: none; }
+.walk-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #dff08c, #f5d274); box-shadow: 0 0 14px rgba(223,240,140,.65); }
+.walk-progress b { position: absolute; right: 0; bottom: 9px; color: rgba(255,255,255,.8); font-size: 8px; }
+
+.garden-card-seed { width: 74px; min-height: 82px; display: grid; place-items: center; background: linear-gradient(145deg, #dbe9bd, #82ac76); font-size: 32px; font-style: normal; }
+.visited-garden > .living-garden { left: 0; right: 0; top: 0; bottom: 0; padding: 0; border: 0; border-radius: 0; background: #8db37a; color: inherit; backdrop-filter: none; }
+.visited-garden > .visited-garden-caption { z-index: 4; }
+
+@keyframes live-pulse { 0%, 100% { opacity: .72; transform: scale(.82); } 50% { opacity: 1; transform: scale(1.12); } }
 
 .side-column { display: grid; grid-template-rows: auto auto minmax(220px, 1fr) auto; gap: 14px; }
 .support-panel { padding: 25px 23px 23px; position: relative; overflow: hidden; background: var(--deep-green); border-color: var(--deep-green); }
@@ -341,7 +378,8 @@ h2 { font-size: 24px; line-height: 1.08; }
   .side-column { order: 3; display: grid; grid-template-columns: 1fr; }
   .support-panel, .achievements-panel, .week-panel, .quick-stats { grid-column: auto; grid-row: auto; }
   .garden-scene { min-height: 500px; }
-  .garden-scene > img { object-position: 42% center; }
+  .garden-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+  .walk-modal { height: calc(100vh - 20px); border-radius: 23px; }
   .add-button { margin-top: 16px; }
   .habit-remove { opacity: .7; }
   .week-chart { height: 160px; }
@@ -357,13 +395,25 @@ h2 { font-size: 24px; line-height: 1.08; }
   .garden-heading h2 { font-size: 21px; }
   .level-badge { padding: 7px 9px; font-size: 8px; }
   .garden-scene { min-height: 445px; margin-top: 16px; border-radius: 19px; }
-  .garden-scene > img { object-position: 39% center; }
+  .live-indicator { top: 10px; left: 10px; }
   .garden-story { left: 13px; right: 13px; bottom: 17px; padding: 14px 14px 16px; }
   .garden-story strong { font-size: 15px; }
   .garden-story p { font-size: 10px; }
   .garden-energy { left: 27px; right: 27px; bottom: 9px; }
   .growth-footer { align-items: flex-end; }
-  .growth-dots i { width: 14px; }
+  .growth-footer > div:first-child { max-width: 58%; }
+  .garden-actions { max-width: 42%; flex-direction: column; align-items: flex-end; }
+  .walk-button { padding: 9px 11px; }
+  .walk-backdrop { padding: 0; }
+  .walk-modal { width: 100%; height: 100%; border: 0; border-radius: 0; }
+  .walk-header { top: 10px; left: 10px; right: 10px; }
+  .walk-header > div { padding: 9px 11px; }
+  .walk-header h2 { font-size: 14px; }
+  .walk-header button { width: 38px; height: 38px; }
+  .walk-hint { left: 12px; bottom: 72px; max-width: 210px; padding: 10px 12px; }
+  .walk-hint span { max-width: 170px; }
+  .garden-joystick { right: 12px; bottom: 26px; }
+  .walk-progress { left: 14px; right: 14px; }
   .choice-row { grid-template-columns: repeat(4, 1fr); }
   .habit-modal, .achievement-modal, .community-modal { padding: 29px 20px 22px; }
   .achievement-grid article { grid-template-columns: 38px 1fr; }

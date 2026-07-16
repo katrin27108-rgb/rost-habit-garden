@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
+import LivingGarden from "./LivingGarden";
 
 type Habit = {
   id: string;
@@ -93,6 +94,7 @@ export default function Home() {
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [toast, setToast] = useState("");
   const [burst, setBurst] = useState(0);
+  const [showWalk, setShowWalk] = useState(false);
 
   const today = dateKey();
   const doneToday = habits.filter((habit) => habit.completions.includes(today));
@@ -101,8 +103,12 @@ export default function Home() {
   const totalCompletions = habits.reduce((sum, habit) => sum + habit.completions.length, 0);
   const bestStreak = Math.max(0, ...habits.map(habitStreak));
   const energy = totalCompletions * 10;
-  const gardenStage = Math.min(4, Math.floor(totalCompletions / 4) + 1);
-  const stageProgress = gardenStage === 4 ? 100 : (totalCompletions % 4) * 25;
+  const monthlyActionGoal = Math.max(30, habits.length * 30);
+  const gardenProgress = Math.min(1, totalCompletions / monthlyActionGoal);
+  const gardenPercent = Math.round(gardenProgress * 100);
+  const gardenDayUnits = habits.length ? totalCompletions / habits.length : 0;
+  const gardenDay = Math.min(30, totalCompletions > 0 ? Math.max(1, Math.ceil(gardenDayUnits)) : 0);
+  const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
   const allCompletionDates = habits.flatMap((habit) => habit.completions).sort();
   const quietDays = daysSince(allCompletionDates.at(-1));
   const isResting = totalCompletions > 0 && doneToday.length === 0 && quietDays >= 2;
@@ -128,7 +134,7 @@ export default function Home() {
     { id: "rhythm", icon: "🔥", title: "Ритм найден", description: "Серия из 3 дней", unlocked: bestStreak >= 3 },
     { id: "week", icon: "🕊️", title: "Неделя заботы", description: "Серия из 7 дней", unlocked: bestStreak >= 7 },
     { id: "garden", icon: "🌼", title: "Садовник", description: "25 выполненных действий", unlocked: totalCompletions >= 25 },
-    { id: "bloom", icon: "🍎", title: "Полное цветение", description: "Открыта четвёртая стадия сада", unlocked: gardenStage === 4 },
+    { id: "bloom", icon: "🍎", title: "Полное цветение", description: "Завершены 30 дней заботы о саде", unlocked: gardenProgress >= 1 },
   ];
   const unlockedCount = achievements.filter((achievement) => achievement.unlocked).length;
 
@@ -371,28 +377,25 @@ export default function Home() {
         <section className="panel garden-panel" aria-labelledby="garden-title">
           <div className="garden-heading">
             <div><p className="eyebrow">Живой сад</p><h2 id="garden-title">Твоё место силы</h2></div>
-            <span className="level-badge">Стадия {gardenStage} из 4</span>
+            <span className="level-badge">День роста {gardenDay} из 30</span>
           </div>
 
-          <div className={`garden-scene stage-${gardenStage} ${isResting ? "is-resting" : ""} ${isWilting ? "is-wilting" : ""} ${burst ? "just-grew" : ""}`} key={`${burst}-${gardenStage}`}>
-            <img src={`garden/stage-${gardenStage}.webp`} alt={`Сад на ${gardenStage} стадии роста`} />
-            <div className="garden-vignette" aria-hidden="true" />
-            <div className="sun-glow" aria-hidden="true" />
-            <div className="weather" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-            <div className="growth-sparkles" aria-hidden="true"><i>✦</i><i>•</i><i>✦</i><i>•</i></div>
+          <div className={`garden-scene ${isResting ? "is-resting" : ""} ${isWilting ? "is-wilting" : ""}`}>
+            <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} />
             <div className="garden-story">
               <span className="garden-mood">{isWilting ? "сад скучает" : isResting ? "сад отдыхает" : todayProgress === 100 ? "полное сияние" : "сад растёт"}</span>
               <strong>{gardenCopy.title}</strong>
               <p>{gardenCopy.text}</p>
             </div>
-            <div className="garden-energy" aria-label={`Энергия сада ${stageProgress}%`}><span style={{ width: `${stageProgress}%` }} /></div>
+            <div className="garden-energy" aria-label={`Месячный рост сада ${gardenPercent}%`}><span style={{ width: `${gardenPercent}%` }} /></div>
           </div>
 
           <div className="growth-footer">
-            <div><strong>{gardenStage === 4 ? "Сад в полном цвету" : `${4 - (totalCompletions % 4)} действия до новой стадии`}</strong><span>Каждая отметка меняет сам пейзаж.</span></div>
+            <div><strong>{gardenProgress >= 1 ? "Первый сезон в полном цвету" : `${gardenPercent}% месячного пути`}</strong><span>Ствол, ветви, листья и цветы растут плавно — без скачков между картинками.</span></div>
             <div className="garden-actions">
-              <div className="growth-dots" aria-label={`Стадия роста ${gardenStage} из 4`}>{[1, 2, 3, 4].map((stage) => <i className={stage <= gardenStage ? "active" : ""} key={stage} />)}</div>
-              {(accountStatus === "connected" || accountStatus === "saving" || accountStatus === "signed-out") && <button className="visit-button" onClick={openCommunity}>Гулять по садам</button>}
+              <span className="month-counter">{gardenDay}/30 дней</span>
+              <button className="walk-button" onClick={() => setShowWalk(true)}><span aria-hidden="true">↗</span> Войти в сад</button>
+              {(accountStatus === "connected" || accountStatus === "saving" || accountStatus === "signed-out") && <button className="visit-button" onClick={openCommunity}>Сады друзей</button>}
             </div>
           </div>
         </section>
@@ -461,15 +464,23 @@ export default function Home() {
         {selectedGarden ? <>
           <button className="back-button" onClick={() => setSelectedGarden(null)}>← Все сады</button>
           <p className="eyebrow">В гостях</p><h2 id="community-title">Сад: {selectedGarden.displayName}</h2>
-          <div className="visited-garden"><img src={`garden/stage-${Math.min(4, Math.max(1, selectedGarden.gardenStage))}.webp`} alt={`Сад пользователя ${selectedGarden.displayName}`} /><div><span>Стадия {selectedGarden.gardenStage} из 4</span><strong>{selectedGarden.totalCompletions} добрых действий</strong></div></div>
+          <div className="visited-garden"><LivingGarden progress={Math.min(1, selectedGarden.totalCompletions / Math.max(30, selectedGarden.habits.length * 30))} todayEnergy={.7} quietDays={0} burst={0} label={`Живой сад пользователя ${selectedGarden.displayName}`} /><div className="visited-garden-caption"><span>Живой сад</span><strong>{selectedGarden.totalCompletions} добрых действий</strong></div></div>
           <div className="visitor-stats"><div><span>Лучший ритм</span><strong>{selectedGarden.bestStreak} дн.</strong></div><div><span>Посажено привычек</span><strong>{selectedGarden.habits.length}</strong></div></div>
           <p className="visitor-note">Ты здесь как тихий гость: можешь смотреть и вдохновляться, но чужие привычки остаются только у хозяина сада.</p>
         </> : <>
           <p className="eyebrow">Сообщество</p><h2 id="community-title">Прогулка по садам</h2>
           <p className="modal-intro">Здесь виден только сам сад и общий прогресс. Личные данные и названия привычек не раскрываются в списке.</p>
-          {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся другие зарегистрированные садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><img src={`garden/stage-${Math.min(4, Math.max(1, garden.gardenStage))}.webp`} alt="" /><span><strong>{garden.displayName}</strong><small>Стадия {garden.gardenStage} · {garden.totalCompletions} действий</small></span></button>)}</div>}
+          {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся другие зарегистрированные садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><i className="garden-card-seed" aria-hidden="true">🌳</i><span><strong>{garden.displayName}</strong><small>{Math.round(Math.min(1, garden.totalCompletions / Math.max(30, garden.habits.length * 30)) * 100)}% роста · {garden.totalCompletions} действий</small></span></button>)}</div>}
         </>}
       </section></div>}
+
+      {showWalk && <div className="walk-backdrop" role="presentation">
+        <section className="walk-modal" role="dialog" aria-modal="true" aria-labelledby="walk-title">
+          <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} explore label="Прогулка по своему живому саду" />
+          <div className="walk-header"><div><p>Твой живой сад</p><h2 id="walk-title">Прогулка · день {gardenDay} из 30</h2></div><button onClick={() => setShowWalk(false)} aria-label="Выйти из сада">×</button></div>
+          <div className="walk-progress"><span style={{ width: `${gardenPercent}%` }} /><b>{gardenPercent}% месячного роста</b></div>
+        </section>
+      </div>}
 
       {toast && <div className="toast" role="status">{toast}</div>}
     </main>
