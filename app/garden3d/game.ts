@@ -1,7 +1,11 @@
-export type GameNotice = { kind: "npc" | "plant" | "pond"; title: string; text: string } | null;
+export type GameNotice = { kind: "plot" | "plant" | "pond"; title: string; text: string } | null;
+export type PlantKind = "tree" | "flowers" | "shrub";
+export type GameWeather = "sun" | "cloud" | "rain";
 
 export type GardenGameRuntime = {
   setGrowth(value: number): void;
+  setWeather(value: GameWeather): void;
+  plant(kind: PlantKind): void;
   setTouchMove(x: number, z: number): void;
   interact(): void;
   dispose(): void;
@@ -25,11 +29,11 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   scene.collisionsEnabled = true;
   scene.gravity = new B.Vector3(0, -9.81, 0);
 
-  const camera = new B.ArcRotateCamera("third person camera", -Math.PI / 2, 1.34, 9.4, new B.Vector3(0, 1.35, 0), scene);
+  const camera = new B.ArcRotateCamera("third person camera", -Math.PI / 2, 1.46, 8.8, new B.Vector3(0, 1.25, 0), scene);
   camera.lowerRadiusLimit = 6.4;
   camera.upperRadiusLimit = 12;
-  camera.lowerBetaLimit = 1.02;
-  camera.upperBetaLimit = 1.48;
+  camera.lowerBetaLimit = 1.18;
+  camera.upperBetaLimit = 1.54;
   camera.wheelPrecision = 40;
   camera.panningSensibility = 0;
   camera.angularSensibilityX = 2500;
@@ -73,6 +77,85 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   treeLeaves.backFaceCulling = false;
   treeLeaves.twoSidedLighting = true;
 
+  B.Effect.ShadersStore.gardenSkyVertexShader = `
+    precision highp float;
+    attribute vec3 position;
+    uniform mat4 worldViewProjection;
+    varying vec3 vDirection;
+    void main(void) {
+      vDirection = position;
+      gl_Position = worldViewProjection * vec4(position, 1.0);
+    }
+  `;
+  B.Effect.ShadersStore.gardenSkyFragmentShader = `
+    precision highp float;
+    varying vec3 vDirection;
+    uniform float weather;
+    void main(void) {
+      vec3 direction = normalize(vDirection);
+      float height = clamp(direction.y * .72 + .42, 0.0, 1.0);
+      vec3 clearHorizon = vec3(.60, .78, .83);
+      vec3 clearZenith = vec3(.20, .53, .82);
+      vec3 greyHorizon = vec3(.53, .62, .61);
+      vec3 greyZenith = vec3(.27, .38, .46);
+      float cloudiness = clamp(weather, 0.0, 1.0);
+      vec3 skyColor = mix(mix(clearHorizon, clearZenith, height), mix(greyHorizon, greyZenith, height), cloudiness);
+      vec3 sunDirection = normalize(vec3(.38, .06, .92));
+      float sunCore = smoothstep(.985, .995, dot(direction, sunDirection));
+      float sunGlow = pow(max(dot(direction, sunDirection), 0.0), 18.0);
+      skyColor += (vec3(1.0, .79, .34) * sunCore * 2.1 + vec3(1.0, .72, .28) * sunGlow * .65) * (1.0 - cloudiness);
+      gl_FragColor = vec4(skyColor, 1.0);
+    }
+  `;
+  const skyMaterial = new B.ShaderMaterial("living sky", scene, { vertex: "gardenSky", fragment: "gardenSky" }, { attributes: ["position"], uniforms: ["worldViewProjection", "weather"] });
+  skyMaterial.backFaceCulling = false;
+  skyMaterial.setFloat("weather", 0);
+  const sky = B.MeshBuilder.CreateSphere("open sky", { diameter: 160, segments: 24, sideOrientation: B.Mesh.BACKSIDE }, scene);
+  sky.material = skyMaterial;
+  sky.infiniteDistance = true;
+  const sunMaterial = new B.StandardMaterial("sun glow", scene);
+  sunMaterial.disableLighting = true;
+  sunMaterial.emissiveColor = new B.Color3(1, .82, .38);
+  const sunDisc = B.MeshBuilder.CreateSphere("visible sun", { diameter: 5, segments: 24 }, scene);
+  sunDisc.position.set(-32, 31, 48);
+  sunDisc.material = sunMaterial;
+  const cloudMaterial = new B.StandardMaterial("soft clouds", scene);
+  cloudMaterial.disableLighting = true;
+  cloudMaterial.emissiveColor = new B.Color3(.88, .91, .87);
+  cloudMaterial.alpha = .32;
+  const clouds = Array.from({ length: 7 }, (_, index) => {
+    const cloud = B.MeshBuilder.CreateSphere(`cloud ${index}`, { diameter: 8 + (index % 3) * 2, segments: 16 }, scene);
+    cloud.scaling.y = .22;
+    cloud.scaling.z = 1.8;
+    cloud.position.set(-28 + index * 10, 18 + (index % 2) * 3, 25 + (index % 3) * 9);
+    cloud.material = cloudMaterial;
+    return cloud;
+  });
+
+  const rainTexture = new B.DynamicTexture("rain drop", { width: 16, height: 64 }, scene, false);
+  const rainContext = rainTexture.getContext();
+  rainContext.clearRect(0, 0, 16, 64);
+  rainContext.strokeStyle = "rgba(220,240,255,.9)";
+  rainContext.lineWidth = 2;
+  rainContext.beginPath();
+  rainContext.moveTo(8, 4);
+  rainContext.lineTo(8, 60);
+  rainContext.stroke();
+  rainTexture.update();
+  const rain = new B.ParticleSystem("garden rain", 1600, scene);
+  rain.particleTexture = rainTexture;
+  rain.emitter = new B.Vector3(0, 18, 0);
+  rain.minEmitBox = new B.Vector3(-24, 0, -24);
+  rain.maxEmitBox = new B.Vector3(24, 0, 24);
+  rain.direction1 = new B.Vector3(-.5, -18, 0);
+  rain.direction2 = new B.Vector3(.5, -22, .4);
+  rain.minLifeTime = .65;
+  rain.maxLifeTime = 1.1;
+  rain.minSize = .08;
+  rain.maxSize = .15;
+  rain.emitRate = 1100;
+  rain.stop();
+
   const ground = B.MeshBuilder.CreateGround("open garden ground", { width: 54, height: 54, subdivisions: 3 }, scene);
   ground.material = grass;
   ground.receiveShadows = true;
@@ -89,13 +172,15 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     slab.receiveShadows = true;
   });
 
-  const beds = [[-6.5, -2.5, 4.8, 3.3], [6.4, -1, 4.5, 3], [-5.5, 6, 4, 2.7]];
-  beds.forEach(([x, z, width, depth], index) => {
-    const bed = B.MeshBuilder.CreateCylinder(`habit bed ${index}`, { diameter: 2, height: .12, tessellation: 48 }, scene);
-    bed.scaling.set(width / 2, 1, depth / 2);
-    bed.position.set(x, .06, z);
-    bed.material = soil;
-    bed.receiveShadows = true;
+  const plotPositions = [new B.Vector3(-3.2, .05, -6.3), new B.Vector3(6, .05, -1), new B.Vector3(-5.5, .05, 6), new B.Vector3(5.2, .05, 7.2)];
+  const plotMaterial = pbr("planting place", "#6f8f60", .8);
+  plotMaterial.emissiveColor = new B.Color3(.12, .2, .08);
+  plotMaterial.alpha = .64;
+  const plotMarkers = plotPositions.map((position: any, index: number) => {
+    const ring = B.MeshBuilder.CreateTorus(`planting place ${index + 1}`, { diameter: 3.2, thickness: .1, tessellation: 64 }, scene);
+    ring.position.copyFrom(position);
+    ring.material = plotMaterial;
+    return ring;
   });
 
   const pond = B.MeshBuilder.CreateCylinder("reflective pond", { diameter: 9, height: .09, tessellation: 64 }, scene);
@@ -108,8 +193,6 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   pondBorder.material = stone;
   pondBorder.receiveShadows = true;
 
-  createGardenFolly(B, scene, ruin, shadows);
-
   const player = B.MeshBuilder.CreateCapsule("player collider", { radius: .38, height: 1.75 }, scene);
   player.position.set(0, .9, -10.8);
   player.isVisible = false;
@@ -118,10 +201,6 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   player.ellipsoidOffset = new B.Vector3(0, .9, 0);
 
   const playerModel = await loadCharacter(B, scene, player, shadows, false);
-  const npcCollider = B.MeshBuilder.CreateCapsule("Mira npc collider", { radius: .38, height: 1.75 }, scene);
-  npcCollider.position.set(4.8, .9, 1.8);
-  npcCollider.isVisible = false;
-  const npcModel = await loadCharacter(B, scene, npcCollider, shadows, true);
 
   const willowImport = await B.SceneLoader.ImportMeshAsync(null, "/garden-game/models/", "Willow_4.obj", scene);
   const willowRoot = new B.TransformNode("willow source", scene);
@@ -132,31 +211,32 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     shadows.addShadowCaster(mesh);
     mesh.receiveShadows = true;
   });
-  willowRoot.position.set(-6.5, .12, -2.5);
-  willowRoot.scaling.setAll(.65);
-  willowRoot.metadata = { interactive: "plant" };
-
-  const boundaryTrees = [[-17, 13, 1.5], [16, 14, 1.35], [-18, -8, 1.55], [17, -7, 1.4]];
-  boundaryTrees.forEach(([x, z, scale], index) => {
-    const clone = willowRoot.clone(`boundary willow ${index}`);
-    clone.position.set(x, 0, z);
-    clone.scaling.setAll(scale);
-    clone.rotation.y = index * 1.7;
-    clone.metadata = null;
-  });
+  willowRoot.position.set(-60, 0, 0);
+  willowRoot.scaling.setAll(1);
+  let treeSource = willowRoot;
+  try {
+    const firImport = await B.SceneLoader.ImportMeshAsync(null, "/garden-game/models/fir/", "fir_sapling.gltf", scene);
+    const firVariant = [...(firImport.transformNodes ?? []), ...firImport.meshes].find((node: any) => node.name === "fir_sapling_a");
+    if (firVariant) {
+      const firSource = new B.TransformNode("detailed tree source", scene);
+      firVariant.parent = firSource;
+      firSource.position.set(-70, 0, 0);
+      firSource.scaling.setAll(1);
+      firImport.meshes.forEach((mesh: any) => { shadows.addShadowCaster(mesh); mesh.receiveShadows = true; });
+      [...(firImport.transformNodes ?? []), ...firImport.meshes].filter((node: any) => node.name === "fir_sapling_b" || node.name === "fir_sapling_c").forEach((node: any) => node.setEnabled(false));
+      treeSource = firSource;
+    }
+  } catch {
+    // На слабом устройстве остаётся облегчённая модель дерева.
+  }
 
   try {
     const shrubImport = await B.SceneLoader.ImportMeshAsync(null, "/garden-game/models/", "shrub_03.gltf", scene);
     const shrubRoot = new B.TransformNode("shrub source", scene);
     shrubImport.meshes.forEach((mesh: any) => { if (!mesh.parent) mesh.parent = shrubRoot; mesh.receiveShadows = true; shadows.addShadowCaster(mesh); });
-    shrubRoot.scaling.setAll(.62);
-    shrubRoot.position.set(-11, 0, 11);
-    [[-14, 8], [-11, -11], [12, -11], [14, 3], [-15, 1], [11, 13], [4, 15], [-5, 15]].forEach(([x, z], index) => {
-      const clone = shrubRoot.clone(`garden shrub ${index}`);
-      clone.position.set(x, 0, z);
-      clone.rotation.y = index * .83;
-      clone.scaling.setAll(.48 + (index % 3) * .1);
-    });
+    shrubRoot.scaling.setAll(1);
+    shrubRoot.position.set(-60, 0, 8);
+    scene.metadata = { ...(scene.metadata ?? {}), shrubRoot };
   } catch {
     // Игра остаётся доступной, даже если дополнительная растительность не загрузилась.
   }
@@ -175,9 +255,10 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   let touchX = 0;
   let touchZ = 0;
   let nearby: GameNotice = null;
+  let nearbyPlot = -1;
   let activeAnimation = "";
-  let npcPoint = 0;
-  const npcRoute = [new B.Vector3(4.8, .9, 1.8), new B.Vector3(3.5, .9, 6.5), new B.Vector3(-1.5, .9, 7.5), new B.Vector3(1.5, .9, 2.5)];
+  let currentGrowth = options.growth;
+  const planted: Array<{ root: any; kind: PlantKind; base: number } | null> = plotPositions.map(() => null);
 
   const onKeyDown = (event: KeyboardEvent) => {
     keys.add(event.key.toLowerCase());
@@ -189,11 +270,46 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
 
   const interact = () => { if (nearby) options.onInteract(nearby); };
   const setGrowth = (value: number) => {
+    currentGrowth = value;
     const t = Math.max(.12, Math.min(1, value / 100));
-    const scale = .22 + t * .78;
-    willowRoot.scaling.setAll(scale);
+    planted.forEach((entry) => entry?.root.scaling.setAll(entry.base * (.22 + t * .78)));
   };
   setGrowth(options.growth);
+
+  const plant = (kind: PlantKind) => {
+    if (nearbyPlot < 0) return;
+    planted[nearbyPlot]?.root.dispose();
+    const position = plotPositions[nearbyPlot];
+    let root: any;
+    let base = 1;
+    if (kind === "tree") {
+      root = treeSource.clone(`habit tree ${nearbyPlot}`);
+      base = treeSource === willowRoot ? 1.15 : 1;
+    } else if (kind === "shrub" && scene.metadata?.shrubRoot) {
+      root = scene.metadata.shrubRoot.clone(`habit shrub ${nearbyPlot}`);
+      base = .72;
+    } else {
+      root = createFlowerPatch(B, scene, `habit flowers ${nearbyPlot}`);
+      base = 1;
+    }
+    root.position.copyFrom(position);
+    root.rotation.y = nearbyPlot * 1.4;
+    root.metadata = { interactive: "plant", plot: nearbyPlot };
+    planted[nearbyPlot] = { root, kind, base };
+    plotMarkers[nearbyPlot].setEnabled(false);
+    setGrowth(currentGrowth);
+  };
+
+  const setWeather = (value: GameWeather) => {
+    if (value === "sun") {
+      skyMaterial.setFloat("weather", 0); sun.intensity = 1.55; hemi.intensity = .72; sunDisc.setEnabled(false); cloudMaterial.alpha = .22; scene.fogDensity = .0065; rain.stop();
+    } else if (value === "cloud") {
+      skyMaterial.setFloat("weather", .72); sun.intensity = .72; hemi.intensity = .62; sunDisc.setEnabled(false); cloudMaterial.alpha = .72; scene.fogDensity = .009; rain.stop();
+    } else {
+      skyMaterial.setFloat("weather", 1); sun.intensity = .45; hemi.intensity = .5; sunDisc.setEnabled(false); cloudMaterial.alpha = .88; scene.fogDensity = .012; rain.start();
+    }
+  };
+  setWeather("sun");
 
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(.035, engine.getDeltaTime() / 1000);
@@ -219,24 +335,13 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     }
     camera.target = B.Vector3.Lerp(camera.target, player.position.add(new B.Vector3(0, .75, 0)), .13);
 
-    const npcTarget = npcRoute[npcPoint];
-    const npcDirection = npcTarget.subtract(npcCollider.position);
-    npcDirection.y = 0;
-    if (npcDirection.length() < .35) npcPoint = (npcPoint + 1) % npcRoute.length;
-    else {
-      npcDirection.normalize();
-      npcCollider.position.addInPlace(npcDirection.scale(1.05 * dt));
-      npcModel.root.rotation.y = Math.atan2(npcDirection.x, npcDirection.z);
-    }
-    if (!npcModel.current) { npcModel.current = "walk"; playAnimation(npcModel.groups, "walk"); }
-
-    const npcDistance = B.Vector3.Distance(player.position, npcCollider.position);
-    const plantDistance = B.Vector3.Distance(player.position, willowRoot.position.add(new B.Vector3(0, .9, 0)));
+    nearbyPlot = plotPositions.findIndex((position: any, index: number) => !planted[index] && B.Vector3.Distance(player.position, position.add(new B.Vector3(0, .9, 0))) < 2.7);
+    const plantIndex = planted.findIndex((entry, index) => entry && B.Vector3.Distance(player.position, plotPositions[index].add(new B.Vector3(0, .9, 0))) < 3.1);
     const pondDistance = B.Vector3.Distance(player.position, pond.position.add(new B.Vector3(0, .9, 0)));
-    const nextNearby: GameNotice = npcDistance < 3.1
-      ? { kind: "npc", title: "Мира, хранительница сада", text: "Подойти и поговорить" }
-      : plantDistance < 3.2
-        ? { kind: "plant", title: "Дуб привычки", text: "Осмотреть рост" }
+    const nextNearby: GameNotice = nearbyPlot >= 0
+      ? { kind: "plot", title: `Свободное место № ${nearbyPlot + 1}`, text: "Выбрать, что посадить" }
+      : plantIndex >= 0
+        ? { kind: "plant", title: "Растение привычки", text: "Осмотреть рост" }
         : pondDistance < 5.8
           ? { kind: "pond", title: "Садовый пруд", text: "Прислушаться к воде" }
           : null;
@@ -250,6 +355,8 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
 
   return {
     setGrowth,
+    setWeather,
+    plant,
     setTouchMove(x, z) { touchX = x; touchZ = z; },
     interact,
     dispose() {
@@ -289,6 +396,30 @@ function playAnimation(groups: any[], wanted: "walk" | "idle") {
   groups.forEach((group) => group.stop());
   const match = groups.find((group) => group.name.toLowerCase().includes(wanted === "walk" ? "walk" : "idle")) ?? groups[0];
   match?.start(true, 1, match.from, match.to, false);
+}
+
+function createFlowerPatch(B: any, scene: any, name: string) {
+  const root = new B.TransformNode(name, scene);
+  const stemMaterial = new B.StandardMaterial(`${name} stems`, scene);
+  stemMaterial.diffuseColor = new B.Color3(.23, .48, .22);
+  const flowerMaterial = new B.StandardMaterial(`${name} petals`, scene);
+  flowerMaterial.diffuseColor = new B.Color3(.58, .42, .78);
+  flowerMaterial.emissiveColor = new B.Color3(.08, .03, .12);
+  for (let index = 0; index < 18; index++) {
+    const angle = index * 2.399;
+    const radius = .24 + (index % 5) * .16;
+    const height = .38 + (index % 4) * .11;
+    const stem = B.MeshBuilder.CreateCylinder(`${name} stem ${index}`, { diameter: .025, height, tessellation: 8 }, scene);
+    stem.parent = root;
+    stem.position.set(Math.cos(angle) * radius, height / 2, Math.sin(angle) * radius);
+    stem.material = stemMaterial;
+    const bloom = B.MeshBuilder.CreateIcoSphere(`${name} bloom ${index}`, { radius: .08 + (index % 3) * .015, subdivisions: 2 }, scene);
+    bloom.parent = root;
+    bloom.position.set(stem.position.x, height, stem.position.z);
+    bloom.scaling.y = 1.25;
+    bloom.material = flowerMaterial;
+  }
+  return root;
 }
 
 function createGardenFolly(B: any, scene: any, material: any, shadows: any) {

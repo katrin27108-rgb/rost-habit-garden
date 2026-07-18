@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadBabylon } from "./garden3d/babylon";
-import { createGardenGame, type GameNotice, type GardenGameRuntime } from "./garden3d/game";
+import { createGardenGame, type GameNotice, type GameWeather, type GardenGameRuntime, type PlantKind } from "./garden3d/game";
 import styles from "./garden-prototype/garden-3d-prototype.module.css";
 
 export default function Garden3DPrototype() {
@@ -13,6 +13,7 @@ export default function Garden3DPrototype() {
   const [growth, setGrowth] = useState(34);
   const [nearby, setNearby] = useState<GameNotice>(null);
   const [dialog, setDialog] = useState<GameNotice>(null);
+  const [weather, setWeather] = useState<GameWeather>("sun");
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +43,14 @@ export default function Garden3DPrototype() {
   useEffect(() => runtimeRef.current?.setGrowth(growth), [growth]);
 
   const touch = (x: number, z: number) => runtimeRef.current?.setTouchMove(x, z);
+  const changeWeather = (value: GameWeather) => {
+    setWeather(value);
+    runtimeRef.current?.setWeather(value);
+  };
+  const plant = (kind: PlantKind) => {
+    runtimeRef.current?.plant(kind);
+    setDialog(null);
+  };
 
   return (
     <main className={styles.game}>
@@ -58,8 +67,12 @@ export default function Garden3DPrototype() {
       <section className={styles.habitCard}>
         <div className={styles.habitTitle}><div><small>ПРИВЫЧКА · 30 ДНЕЙ</small><strong>Утренний стакан воды</strong></div><b>{growth}%</b></div>
         <input aria-label="Рост растения" type="range" min="5" max="100" value={growth} onChange={(event) => setGrowth(Number(event.target.value))} />
-        <p>Подойдите к растению слева от дорожки и осмотрите его.</p>
+        <p>Подойдите к светящемуся кругу и выберите, что посадить.</p>
       </section>
+
+      <nav className={styles.weather} aria-label="Погода в саду">
+        {(["sun", "cloud", "rain"] as GameWeather[]).map((value) => <button key={value} className={weather === value ? styles.active : ""} onClick={() => changeWeather(value)} aria-label={value === "sun" ? "Солнечно" : value === "cloud" ? "Облачно" : "Дождь"}>{value === "sun" ? "☀" : value === "cloud" ? "☁" : "☂"}</button>)}
+      </nav>
 
       <section className={styles.help}>
         <b>WASD</b><span>идти</span><b>мышь</b><span>осмотреться</span><b>E</b><span>взаимодействовать</span>
@@ -71,10 +84,14 @@ export default function Garden3DPrototype() {
 
       {dialog && <section className={styles.dialog} aria-live="polite">
         <button className={styles.close} onClick={() => setDialog(null)} aria-label="Закрыть">×</button>
-        <small>{dialog.kind === "npc" ? "РАЗГОВОР" : "ИССЛЕДОВАНИЕ"}</small>
+        <small>{dialog.kind === "plot" ? "НОВАЯ ПОСАДКА" : "ИССЛЕДОВАНИЕ"}</small>
         <h2>{dialog.title}</h2>
         <p>{dialog.text}</p>
-        {dialog.kind === "npc" && <button className={styles.dialogAction} onClick={() => setDialog(null)}>Спасибо, Мира</button>}
+        {dialog.kind === "plot" && <div className={styles.plantChoices}>
+          <button onClick={() => plant("tree")}><b>♧</b><span>Дерево<small>долгая привычка</small></span></button>
+          <button onClick={() => plant("flowers")}><b>✿</b><span>Цветы<small>ежедневная забота</small></span></button>
+          <button onClick={() => plant("shrub")}><b>❋</b><span>Куст<small>мягкий ритм</small></span></button>
+        </div>}
         {dialog.kind === "plant" && <button className={styles.dialogAction} onClick={() => { setGrowth((value) => Math.min(100, value + 3)); setDialog(null); }}>Полить · +3% роста</button>}
       </section>}
 
@@ -90,7 +107,7 @@ export default function Garden3DPrototype() {
 
 function expandNotice(notice: GameNotice, growth: number): GameNotice {
   if (!notice) return null;
-  if (notice.kind === "npc") return { ...notice, text: "Рада тебя видеть. Здесь каждая привычка получает своё место. Не торопись: пройдись, послушай воду и позаботься о молодом дереве." };
+  if (notice.kind === "plot") return { ...notice, text: "Выберите растение для этой привычки. Оно появится именно здесь и будет расти вместе с вашим прогрессом." };
   if (notice.kind === "plant") return { ...notice, text: `Это растение связано с привычкой «Утренний стакан воды». Сейчас оно прошло ${growth}% пути. Сегодня ему достаточно одного небольшого действия.` };
   return { ...notice, text: "Вода тихо движется у камней. Иногда полезно остановиться на несколько секунд и просто выдохнуть." };
 }
