@@ -1,6 +1,5 @@
-import GardenPrototype from "../GardenPrototype";
+import Garden3DPrototype from "../Garden3DPrototype";
 
 export default function GardenPrototypePage() {
-  return <GardenPrototype />;
+  return <Garden3DPrototype />;
 }
-
