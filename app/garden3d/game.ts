@@ -20,16 +20,16 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   const scene = new B.Scene(engine);
   scene.clearColor = new B.Color4(.59, .76, .82, 1);
   scene.fogMode = B.Scene.FOGMODE_EXP2;
-  scene.fogDensity = .012;
+  scene.fogDensity = .0065;
   scene.fogColor = new B.Color3(.68, .79, .73);
   scene.collisionsEnabled = true;
   scene.gravity = new B.Vector3(0, -9.81, 0);
 
-  const camera = new B.ArcRotateCamera("third person camera", -Math.PI / 2, 1.04, 8.5, new B.Vector3(0, 1.5, 0), scene);
-  camera.lowerRadiusLimit = 5.2;
+  const camera = new B.ArcRotateCamera("third person camera", -Math.PI / 2, 1.34, 9.4, new B.Vector3(0, 1.35, 0), scene);
+  camera.lowerRadiusLimit = 6.4;
   camera.upperRadiusLimit = 12;
-  camera.lowerBetaLimit = .72;
-  camera.upperBetaLimit = 1.32;
+  camera.lowerBetaLimit = 1.02;
+  camera.upperBetaLimit = 1.48;
   camera.wheelPrecision = 40;
   camera.panningSensibility = 0;
   camera.angularSensibilityX = 2500;
@@ -42,7 +42,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   hemi.groundColor = new B.Color3(.22, .30, .20);
   const sun = new B.DirectionalLight("morning sun", new B.Vector3(-.55, -1, .32), scene);
   sun.position = new B.Vector3(22, 35, -18);
-  sun.intensity = 2.25;
+  sun.intensity = 1.55;
   sun.diffuse = new B.Color3(1, .89, .64);
   const shadows = new B.ShadowGenerator(2048, sun);
   shadows.useBlurExponentialShadowMap = true;
@@ -68,6 +68,10 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   water.alpha = .78;
   water.metallic = .08;
   const ruin = pbr("weathered garden stone", "#b8b59d", .96);
+  const treeWood = pbr("willow wood", "#58402b", .94);
+  const treeLeaves = pbr("willow leaves", "#426b37", .82);
+  treeLeaves.backFaceCulling = false;
+  treeLeaves.twoSidedLighting = true;
 
   const ground = B.MeshBuilder.CreateGround("open garden ground", { width: 54, height: 54, subdivisions: 3 }, scene);
   ground.material = grass;
@@ -78,7 +82,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     [0, 10], [-.4, 8], [.3, 6], [1.1, 4], [.7, 2], [0, 0], [-1.1, -2], [-.6, -4], [.3, -6], [1.2, -8], [.8, -10],
   ];
   pathPoints.forEach(([x, z], index) => {
-    const slab = B.MeshBuilder.CreateBox(`path stone ${index}`, { width: 1.4 + (index % 3) * .12, height: .12, depth: 1.45 }, scene);
+    const slab = B.MeshBuilder.CreateBox(`path stone ${index}`, { width: 1.02 + (index % 3) * .1, height: .1, depth: .82 }, scene);
     slab.position.set(x, .04, z);
     slab.rotation.y = (index % 2 ? -.08 : .09);
     slab.material = stone;
@@ -123,6 +127,8 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   const willowRoot = new B.TransformNode("willow source", scene);
   willowImport.meshes.filter((mesh: any) => mesh !== scene.meshes[0]).forEach((mesh: any) => {
     if (!mesh.parent) mesh.parent = willowRoot;
+    const materialName = `${mesh.material?.name ?? ""} ${mesh.name}`.toLowerCase();
+    mesh.material = materialName.includes("wood") ? treeWood : treeLeaves;
     shadows.addShadowCaster(mesh);
     mesh.receiveShadows = true;
   });
@@ -162,7 +168,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   pipeline.bloomWeight = .24;
   pipeline.imageProcessingEnabled = true;
   pipeline.imageProcessing.contrast = 1.18;
-  pipeline.imageProcessing.exposure = 1.08;
+  pipeline.imageProcessing.exposure = .92;
   pipeline.imageProcessing.toneMappingEnabled = true;
 
   const keys = new Set<string>();
@@ -261,7 +267,8 @@ async function loadCharacter(B: any, scene: any, collider: any, shadows: any, np
   const root = new B.TransformNode(npc ? "npc model" : "player model", scene);
   root.parent = collider;
   root.position.y = -.88;
-  root.scaling.setAll(.82);
+  // HVGirl is authored at roughly eight times the scene's meter scale.
+  root.scaling.setAll(.1);
   result.meshes.forEach((mesh: any) => {
     if (!mesh.parent) mesh.parent = root;
     mesh.receiveShadows = true;
