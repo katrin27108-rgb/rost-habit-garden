@@ -1,10 +1,10 @@
 export type GameNotice = { kind: "plot" | "plant" | "pond"; title: string; text: string } | null;
 export type PlantKind = "tree" | "flowers" | "shrub";
 export type GameWeather = "sun" | "cloud" | "rain";
-export type DecorationKind = "fertilizer" | "lantern" | "birdhouse" | "bench";
+export type DecorationKind = "fertilizer" | "lantern" | "birdhouse" | "bench" | "pond";
 export type TimeOfDay = "day" | "evening" | "night";
 export type PlacementItem =
-  | { category: "plant"; kind: PlantKind; habitId: string; habitName: string; growth: number }
+  | { category: "plant"; kind: PlantKind; habitId: string; habitName: string; growth: number; durationDays: number }
   | { category: "decoration"; kind: DecorationKind };
 
 export type GardenGameRuntime = {
@@ -32,6 +32,7 @@ type Planted = {
   kind: PlantKind;
   habitId: string;
   habitName: string;
+  durationDays: number;
   baseScale: number;
   targetGrowth: number;
   displayGrowth: number;
@@ -68,6 +69,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   camera.angularSensibilityX = 3000;
   camera.angularSensibilityY = 3000;
   camera.attachControl(canvas, true);
+  camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
 
   const skyLight = new B.HemisphericLight("painted skylight", new B.Vector3(0, 1, 0), scene);
   skyLight.intensity = .76;
@@ -90,10 +92,9 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     return value;
   };
   const palette = {
-    grass: material("painted meadow", "#72a957", .03),
-    grassLight: material("sunny meadow patches", "#b1cc68", .04),
+    grass: material("painted meadow", "#659458", .025),
+    grassLight: material("sunny meadow patches", "#9dbb61", .035),
     grassDark: material("cool meadow patches", "#3f765d", .02),
-    grassBright: material("bright grass blades", "#82c65a", .035),
     soil: material("warm planting soil", "#7a473a", .025),
     soilLight: material("soft bed edge", "#b86a46", .025),
     path: material("apricot garden path", "#d57650", .035),
@@ -145,7 +146,6 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   ground.checkCollisions = true;
 
   createMeadowPatches(B, scene, palette, shadows);
-  createLivingGroundCover(B, scene, palette);
   createDistantWorld(B, scene, palette, shadows);
   createPath(B, scene, palette);
   createFence(B, scene, palette, shadows);
@@ -257,6 +257,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
       kind,
       habitId: item.habitId,
       habitName: item.habitName,
+      durationDays: item.durationDays,
       baseScale,
       targetGrowth: item.growth,
       displayGrowth: item.growth,
@@ -297,7 +298,8 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     else if (item.kind === "fertilizer") createMagicBurst(B, scene, palette, exact);
     else if (item.kind === "lantern") createLantern(B, scene, palette, shadows, exact, decorationSerial++);
     else if (item.kind === "birdhouse") createBirdhouse(B, scene, palette, shadows, exact, decorationSerial++);
-    else createBench(B, scene, palette, shadows, exact, decorationSerial++);
+    else if (item.kind === "bench") createBench(B, scene, palette, shadows, exact, decorationSerial++);
+    else createMiniPond(B, scene, palette, shadows, exact, decorationSerial++);
     options.onPlacementComplete(item);
   };
 
@@ -340,7 +342,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   const setWeather = (value: GameWeather) => { weather = value; applyAtmosphere(); };
   const setTimeOfDay = (value: TimeOfDay) => { timeOfDay = value; applyAtmosphere(); };
   applyAtmosphere();
-  createPlantAt({ category: "plant", kind: "tree", habitId: "water", habitName: "Утренний стакан воды", growth: initialHabitGrowth }, new B.Vector3(-4.5, .04, -3.4));
+  createPlantAt({ category: "plant", kind: "tree", habitId: "water", habitName: "Утренний стакан воды", growth: initialHabitGrowth, durationDays: 30 }, new B.Vector3(-4.5, .04, -3.4));
 
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(.035, engine.getDeltaTime() / 1000);
@@ -356,7 +358,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
       const forward = camera.getForwardRay().direction.clone();
       forward.y = 0;
       forward.normalize();
-      const right = B.Vector3.Cross(forward, B.Axis.Y).normalize();
+      const right = B.Vector3.Cross(B.Axis.Y, forward).normalize();
       const direction = forward.scale(z).add(right.scale(x)).normalize();
       const next = player.position.add(direction.scale(3.8 * dt));
       const outside = Math.abs(next.x) > 14.2 || next.z < -12.6 || next.z > 12.3;
@@ -383,7 +385,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     const plantIndex = planted.findIndex((entry) => B.Vector3.Distance(player.position, entry.position.add(new B.Vector3(0, .9, 0))) < 3);
     const pondDistance = B.Vector3.Distance(player.position, pond.root.position.add(new B.Vector3(0, .9, 0)));
     const nextNearby: GameNotice = plantIndex >= 0
-        ? { kind: "plant", title: planted[plantIndex].habitName, text: `Рост растения: ${Math.round(planted[plantIndex].targetGrowth)}%` }
+        ? { kind: "plant", title: planted[plantIndex].habitName, text: `Рост растения: ${Math.round(planted[plantIndex].targetGrowth)}% из ${planted[plantIndex].durationDays} дней` }
         : pondDistance < 5.1
           ? { kind: "pond", title: "Тихий пруд", text: weather === "rain" ? "Послушать дождь" : "Остановиться у воды" }
           : null;
@@ -477,44 +479,6 @@ function createMeadowPatches(B: any, scene: any, palette: any, shadows: any) {
     patch.scaling.set(width, depth, 1);
     patch.material = patchMaterial;
   });
-}
-
-function createLivingGroundCover(B: any, scene: any, palette: any) {
-  const bladeMaterial = palette.grassBright;
-  bladeMaterial.backFaceCulling = false;
-  const bladeA = B.MeshBuilder.CreatePlane("living grass blade a", { width: .13, height: .55 }, scene);
-  const bladeB = B.MeshBuilder.CreatePlane("living grass blade b", { width: .11, height: .48 }, scene);
-  bladeA.material = bladeMaterial;
-  bladeB.material = bladeMaterial;
-  bladeA.isPickable = false;
-  bladeB.isPickable = false;
-  for (let index = 0; index < 330; index++) {
-    const x = ((index * 7.31) % 29) - 14.5;
-    const z = ((index * 11.17) % 24) - 11.5;
-    const nearPath = Math.abs(x) < 1.05 && z < 10.8;
-    const inPond = ((x + 9.2) ** 2 / 23 + (z - 3.2) ** 2 / 14) < 1;
-    const nearRoom = (x - 10.3) ** 2 + (z - 10.2) ** 2 < 15;
-    if (nearPath || inPond || nearRoom) continue;
-    const height = .72 + (index % 7) * .055;
-    const rotation = index * .83;
-    const position = new B.Vector3(x, .25 * height, z);
-    const scaling = new B.Vector3(.8 + index % 3 * .12, height, 1);
-    bladeA.thinInstanceAdd(B.Matrix.Compose(scaling, B.Quaternion.RotationAxis(B.Axis.Y, rotation), position));
-    bladeB.thinInstanceAdd(B.Matrix.Compose(scaling, B.Quaternion.RotationAxis(B.Axis.Y, rotation + Math.PI / 2), position));
-  }
-  const flowerMaterials = [palette.coral, palette.pink, palette.yellow, palette.purple];
-  for (let index = 0; index < 52; index++) {
-    const x = ((index * 8.73) % 27) - 13.5;
-    const z = ((index * 5.91) % 22) - 10.5;
-    const nearPath = Math.abs(x) < 1.25;
-    const inPond = ((x + 9.2) ** 2 / 24 + (z - 3.2) ** 2 / 15) < 1;
-    if (nearPath || inPond) continue;
-    const bloom = B.MeshBuilder.CreateSphere(`small meadow flower ${index}`, { diameter: .13 + index % 3 * .025, segments: 8 }, scene);
-    bloom.position.set(x, .28 + index % 4 * .035, z);
-    bloom.scaling.y = .55;
-    bloom.material = flowerMaterials[index % flowerMaterials.length];
-    bloom.isPickable = false;
-  }
 }
 
 function createDistantWorld(B: any, scene: any, palette: any, shadows: any) {
@@ -686,6 +650,10 @@ function createPlacementPreview(B: any, scene: any, palette: any, item: Placemen
   } else if (item.kind === "bench") {
     const seat = add(B.MeshBuilder.CreateBox("preview bench", { width: 1.8, height: .65, depth: .55 }, scene));
     seat.position.y = .65;
+  } else if (item.kind === "pond") {
+    const water = add(B.MeshBuilder.CreateCylinder("preview decorative pond", { diameter: 4.2, height: .1, tessellation: 32 }, scene));
+    water.position.y = .06;
+    water.scaling.z = .68;
   } else {
     const sparkle = add(B.MeshBuilder.CreatePolyhedron("preview fertilizer", { type: 1, size: .65 }, scene));
     sparkle.position.y = .7;
@@ -756,6 +724,31 @@ function createMagicBurst(B: any, scene: any, palette: any, position: any) {
   particles.targetStopDuration = .7;
   particles.disposeOnStop = true;
   particles.start();
+}
+
+function createMiniPond(B: any, scene: any, palette: any, shadows: any, position: any, index: number) {
+  const root = new B.TransformNode(`decorative pond ${index} ${Date.now()}`, scene);
+  root.position.copyFrom(position);
+  const water = B.MeshBuilder.CreateCylinder("decorative pond water", { diameter: 4.2, height: .09, tessellation: 48 }, scene);
+  water.parent = root;
+  water.position.y = .04;
+  water.scaling.z = .68;
+  water.material = palette.water;
+  for (let stoneIndex = 0; stoneIndex < 16; stoneIndex++) {
+    const angle = stoneIndex / 16 * Math.PI * 2;
+    const stone = B.MeshBuilder.CreateIcoSphere(`decorative pond stone ${stoneIndex}`, { radius: .3 + stoneIndex % 3 * .035, subdivisions: 2 }, scene);
+    stone.parent = root;
+    stone.position.set(Math.cos(angle) * 2.16, .13, Math.sin(angle) * 1.48);
+    stone.scaling.set(1.1, .55, .82);
+    stone.material = stoneIndex % 4 === 0 ? palette.stoneShade : palette.stone;
+    shadows.addShadowCaster(stone);
+  }
+  for (let padIndex = 0; padIndex < 3; padIndex++) {
+    const pad = B.MeshBuilder.CreateCylinder(`decorative lily pad ${padIndex}`, { diameter: .5, height: .02, tessellation: 18 }, scene);
+    pad.parent = root;
+    pad.position.set(-.7 + padIndex * .65, .11, Math.sin(padIndex * 1.8) * .4);
+    pad.material = palette.leaf;
+  }
 }
 
 function createLantern(B: any, scene: any, palette: any, shadows: any, position: any, index: number) {

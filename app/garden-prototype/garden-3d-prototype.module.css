@@ -386,6 +386,62 @@
   font: 500 11px/1.45 Georgia, serif;
 }
 
+.habitForm {
+  display: grid;
+  gap: 13px;
+  margin-top: 15px;
+}
+
+.habitForm label,
+.habitForm fieldset {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.habitForm label > span,
+.habitForm legend {
+  color: #ffe0a0;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.habitForm input {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 231, 177, .28);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(255, 248, 218, .08);
+  color: #fff4d1;
+  font: 600 11px Georgia, serif;
+}
+
+.habitForm input:focus {
+  border-color: #ffd77a;
+  box-shadow: 0 0 0 3px rgba(255, 215, 122, .1);
+}
+
+.habitForm input::placeholder {
+  color: rgba(232, 232, 207, .48);
+}
+
+.durationRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.durationRow em {
+  color: #dfe4ca;
+  font-size: 9px;
+  font-style: normal;
+}
+
 .panelClose {
   position: absolute;
   top: 12px;

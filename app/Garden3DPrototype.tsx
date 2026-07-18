@@ -20,10 +20,10 @@ const WEATHER_COPY: Record<GameWeather, { title: string; text: string }> = {
   rain: { title: "Дождь", text: "Вода, листья и трава оживают" },
 };
 
-const HABIT_PLANTS: Array<{ habitId: string; habitName: string; kind: PlantKind; growth: number; icon: string; plantName: string; doneToday: boolean }> = [
-  { habitId: "water", habitName: "Утренний стакан воды", kind: "tree", growth: 34, icon: "♧", plantName: "Дерево", doneToday: true },
-  { habitId: "stretch", habitName: "Мягкая растяжка", kind: "flowers", growth: 62, icon: "✿", plantName: "Цветы", doneToday: true },
-  { habitId: "reading", habitName: "Чтение перед сном", kind: "shrub", growth: 18, icon: "❋", plantName: "Цветущий куст", doneToday: false },
+const PLANTS: Array<{ kind: PlantKind; icon: string; title: string; text: string }> = [
+  { kind: "tree", icon: "♧", title: "Дерево", text: "Для долгой привычки" },
+  { kind: "flowers", icon: "✿", title: "Цветы", text: "Для ежедневной заботы" },
+  { kind: "shrub", icon: "❋", title: "Цветущий куст", text: "Для мягкого ритма" },
 ];
 
 const SHOP_ITEMS: Array<{ kind: DecorationKind; icon: string; title: string; text: string; cost: number }> = [
@@ -31,6 +31,7 @@ const SHOP_ITEMS: Array<{ kind: DecorationKind; icon: string; title: string; tex
   { kind: "lantern", icon: "♨", title: "Тёплый фонарь", text: "Светит именно там, где вы поставите", cost: 18 },
   { kind: "birdhouse", icon: "⌂", title: "Домик для птиц", text: "Украшение для выбранного места", cost: 24 },
   { kind: "bench", icon: "▰", title: "Садовая скамья", text: "Место остановиться и выдохнуть", cost: 32 },
+  { kind: "pond", icon: "◉", title: "Новый пруд", text: "Большой уголок с водой, камнями и кувшинками", cost: 120 },
 ];
 
 type PendingPlacement = { item: PlacementItem; title: string; cost: number };
@@ -49,7 +50,9 @@ export default function Garden3DPrototype() {
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => timeFromDevice());
   const [activePanel, setActivePanel] = useState<"plant" | "shop" | null>(null);
   const [stars, setStars] = useState(46);
-  const [plantedHabitIds, setPlantedHabitIds] = useState<string[]>(["water"]);
+  const [habitName, setHabitName] = useState("");
+  const [habitDuration, setHabitDuration] = useState(30);
+  const [selectedPlant, setSelectedPlant] = useState<PlantKind>("tree");
   const [placement, setPlacement] = useState<PendingPlacement | null>(null);
   const [growthDemo, setGrowthDemo] = useState(false);
   const [toast, setToast] = useState("");
@@ -71,9 +74,6 @@ export default function Garden3DPrototype() {
           if (pending.cost) setStars((value) => value - pending.cost);
           if (pending.item.category === "decoration" && pending.item.kind === "fertilizer") {
             setGrowth((value) => Math.min(100, value + 8));
-          }
-          if (pending.item.category === "plant") {
-            setPlantedHabitIds((ids) => ids.includes(pending.item.habitId) ? ids : [...ids, pending.item.habitId]);
           }
           setToast(`${pending.title} размещён именно в выбранном месте`);
           pendingRef.current = null;
@@ -141,6 +141,26 @@ export default function Garden3DPrototype() {
     setDialog(null);
     runtimeRef.current?.beginPlacement(next.item);
   };
+  const startHabitPlacement = () => {
+    const name = habitName.trim();
+    if (!name) {
+      setToast("Сначала напишите название привычки");
+      return;
+    }
+    startPlacement({
+      item: {
+        category: "plant",
+        kind: selectedPlant,
+        habitId: `habit-${Date.now()}`,
+        habitName: name,
+        growth: 5,
+        durationDays: habitDuration,
+      },
+      title: name,
+      cost: 0,
+    });
+    setHabitName("");
+  };
   const cancelPlacement = () => {
     runtimeRef.current?.cancelPlacement();
     pendingRef.current = null;
@@ -207,13 +227,15 @@ export default function Garden3DPrototype() {
       {activePanel && <aside className={styles.workshop} aria-label={activePanel === "plant" ? "Выбор растения" : "Магазин сада"}>
         <button className={styles.panelClose} onClick={() => setActivePanel(null)} aria-label="Закрыть панель">×</button>
         <small>{activePanel === "plant" ? "СВОБОДНАЯ ПОСАДКА" : `БАЛАНС · ${stars} ЗВЁЗД`}</small>
-        <h2>{activePanel === "plant" ? "Что посадить?" : "Что добавить?"}</h2>
-        <p>Выберите предмет, затем укажите точное место прямо на траве.</p>
-        {activePanel === "plant" ? <div className={styles.workshopPlants}>
-          {HABIT_PLANTS.map((plant) => {
-            const planted = plantedHabitIds.includes(plant.habitId);
-            return <button key={plant.habitId} disabled={planted} aria-label={planted ? `${plant.habitName} уже посажена` : `Посадить привычку ${plant.habitName}`} onClick={() => startPlacement({ item: { category: "plant", kind: plant.kind, habitId: plant.habitId, habitName: plant.habitName, growth: plant.growth }, title: plant.habitName, cost: 0 })}><b>{plant.icon}</b><span>{plant.habitName}<small>{plant.plantName} · {plant.growth}% · {planted ? "уже в саду" : plant.doneToday ? "сегодня выполнено" : "сегодня ждёт действия"}</small></span></button>;
-          })}
+        <h2>{activePanel === "plant" ? "Новая привычка" : "Что добавить?"}</h2>
+        <p>{activePanel === "plant" ? "Настройте привычку, выберите её растение, а затем укажите место в саду." : "Выберите предмет, затем укажите точное место прямо на траве."}</p>
+        {activePanel === "plant" ? <div className={styles.habitForm}>
+          <label><span>Что за привычка?</span><input value={habitName} onChange={(event) => setHabitName(event.target.value)} placeholder="Например, вечерняя прогулка" /></label>
+          <label><span>Сколько дней она растёт?</span><div className={styles.durationRow}><input type="number" min="7" max="365" value={habitDuration} onChange={(event) => setHabitDuration(Math.max(7, Math.min(365, Number(event.target.value))))} /><em>дней</em></div></label>
+          <fieldset><legend>Какое растение посадить?</legend><div className={styles.workshopPlants}>
+            {PLANTS.map((plant) => <button type="button" key={plant.kind} className={selectedPlant === plant.kind ? styles.selectedPlant : ""} aria-label={`Выбрать ${plant.title.toLowerCase()}`} onClick={() => setSelectedPlant(plant.kind)}><b>{plant.icon}</b><span>{plant.title}<small>{plant.text}</small></span></button>)}
+          </div></fieldset>
+          <button className={styles.primaryAction} onClick={startHabitPlacement}>Выбрать место в саду</button>
         </div> : <div className={styles.shopGrid}>
           {SHOP_ITEMS.map((item) => <button key={item.kind} aria-label={`Разместить ${item.title.toLowerCase()}`} onClick={() => startPlacement({ item: { category: "decoration", kind: item.kind }, title: item.title, cost: item.cost })} disabled={stars < item.cost}><b>{item.icon}</b><span><strong>{item.title}</strong><small>{item.text}</small></span><em>✦ {item.cost}</em></button>)}
         </div>}
