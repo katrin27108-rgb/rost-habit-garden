@@ -75,7 +75,6 @@ export default function Home() {
   const [cloudReady, setCloudReady] = useState(false);
   const [toast, setToast] = useState("");
   const [burst, setBurst] = useState(0);
-  const [focusPlantId, setFocusPlantId] = useState<string>();
   const [showSettings, setShowSettings] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [rewardState, setRewardState] = useState<RewardState>({ spent: 0, inventory: [] });
@@ -91,11 +90,6 @@ export default function Home() {
   const gardenProgress = visibleHabits.length ? visibleHabits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / visibleHabits.length : 0;
   const gardenPercent = Math.round(gardenProgress * 100);
   const gardenDay = gardenPercent;
-  const gardenPlants = useMemo<GardenPlant[]>(() => visibleHabits.map((habit) => ({
-    id: habit.id, kind: habit.plantKind, slot: habit.gardenSlot, color: habit.color,
-    progress: metrics.get(habit.id)?.progress ?? 0, health: metrics.get(habit.id)?.health ?? 100,
-    fertilized: Boolean(rewardState.fertilizerUntil && new Date(rewardState.fertilizerUntil) > new Date()),
-  })), [habits, metrics, rewardState.fertilizerUntil]);
   const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
   const allCompletionDates = habits.flatMap((habit) => habit.completions).sort();
   const quietDays = daysSince(allCompletionDates.at(-1));
@@ -436,9 +430,15 @@ export default function Home() {
           </div>
 
           <div className={`garden-scene ${isResting ? "is-resting" : ""} ${isWilting ? "is-wilting" : ""}`}>
-            <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} plants={gardenPlants} focusPlantId={focusPlantId} />
+            <iframe
+              className="garden-live-frame"
+              src="/garden-prototype?embed=1"
+              title="Живой интерактивный 3D-сад"
+              loading="eager"
+            />
+            <a className="garden-open-world" href="/garden-prototype"><span aria-hidden="true">↗</span> Развернуть и гулять</a>
             <div className="garden-story">
-              <span className="garden-mood">{isWilting ? "сад скучает" : isResting ? "сад отдыхает" : todayProgress === 100 ? "полное сияние" : "сад растёт"}</span>
+              <span className="garden-mood">3D · {isWilting ? "сад скучает" : isResting ? "сад отдыхает" : todayProgress === 100 ? "полное сияние" : "сад растёт"}</span>
               <strong>{gardenCopy.title}</strong>
               <p>{gardenCopy.text}</p>
             </div>

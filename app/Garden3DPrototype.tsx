@@ -108,7 +108,12 @@ export default function Garden3DPrototype() {
   const [placement, setPlacement] = useState<PendingPlacement | null>(null);
   const [growthDemo, setGrowthDemo] = useState(false);
   const [toast, setToast] = useState("");
+  const [embedded, setEmbedded] = useState(false);
   const focusHabit = siteHabits[0];
+
+  useEffect(() => {
+    setEmbedded(new URLSearchParams(window.location.search).get("embed") === "1");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,7 +278,7 @@ export default function Garden3DPrototype() {
   };
 
   return (
-    <main className={styles.game}>
+    <main className={`${styles.game} ${embedded ? styles.embedded : ""}`}>
       <canvas ref={canvasRef} className={styles.canvas} aria-label="Трёхмерный игровой сад, по которому можно ходить" />
       {!ready && !error && <div className={styles.loading}><span />Создаю игровое пространство…</div>}
       {error && <div className={styles.error}><strong>Сад не загрузился</strong><span>{error}</span></div>}
