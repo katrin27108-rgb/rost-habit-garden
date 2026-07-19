@@ -84,11 +84,10 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  Task[Задача] --> Branch[agent/*]
-  Branch --> Checks[npm run check]
-  Checks --> PR[Pull Request]
-  PR --> Main[Squash merge в main]
-  Main --> CI[Повторная CI-проверка]
+  Task[Задача] --> Main[Локальный main]
+  Main --> Checks[npm run check]
+  Checks --> Push[Обычный push в origin/main]
+  Push --> CI[Повторная CI-проверка]
   CI --> Prepare[Подготовка D1-конфигурации]
   Prepare --> Deploy[Cloudflare Workers deploy]
   Deploy --> Prod[Production]

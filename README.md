@@ -56,9 +56,9 @@ npm run build
 
 ## Работа с Git
 
-- Ветки агента: `agent/<задача>`.
+- Рабочая ветка: `main`.
 - Перед изменениями прочитайте [AGENTS.md](AGENTS.md) и [MEMORY.md](MEMORY.md).
-- Изменения попадают в `main` через Pull Request и squash merge.
+- После `npm run check` изменения коммитятся и обычным push отправляются сразу в `main`.
 - `main` не переписывается принудительно.
 - После успешных проверок push в `main` автоматически развёртывается в Cloudflare Workers.
 
