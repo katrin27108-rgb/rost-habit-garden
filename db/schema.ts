@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const gardens = sqliteTable("gardens", {
   email: text("email").primaryKey(),
@@ -12,3 +12,9 @@ export const gardens = sqliteTable("gardens", {
   isPublic: integer("is_public", { mode: "boolean" }).notNull().default(true),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const gardenAccess = sqliteTable("garden_access", {
+  ownerEmail: text("owner_email").notNull(),
+  visitorEmail: text("visitor_email").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [primaryKey({ columns: [table.ownerEmail, table.visitorEmail] })]);

@@ -34,7 +34,7 @@ type CommunityGarden = {
 
 type AccountStatus = "checking" | "unavailable" | "signed-out" | "connected" | "saving";
 type RewardState = { spent: number; inventory: string[]; fertilizerUntil?: string };
-const SHOP = [{ code: "fertilizer", title: "Удобрение", icon: "✨", price: 20 }, { code: "flower", title: "Декоративный цветок", icon: "🌷", price: 25 }, { code: "lantern", title: "Фонарь", icon: "🏮", price: 40 }, { code: "feeder", title: "Кормушка", icon: "🐦", price: 60 }, { code: "bench", title: "Скамейка", icon: "🪑", price: 80 }, { code: "fountain", title: "Фонтан", icon: "⛲", price: 150 }];
+const SHOP = [{ code: "fertilizer", title: "Удобрение", icon: "✨", price: 20 }, { code: "flower", title: "Декоративный цветок", icon: "🌷", price: 25 }, { code: "lantern", title: "Фонарь", icon: "🏮", price: 40 }, { code: "feeder", title: "Кормушка", icon: "🐦", price: 60 }, { code: "bench", title: "Скамейка", icon: "🪑", price: 80 }, { code: "fountain", title: "Фонтан", icon: "⛲", price: 150 }, { code: "pond", title: "Большой пруд", icon: "🪷", price: 250 }];
 
 const starterLegacyHabits: LegacyHabit[] = [
   { id: "water", name: "Стакан воды", icon: "💧", color: "#b9d8cf", completions: [] },
@@ -67,12 +67,13 @@ export default function Home() {
   const [communityGardens, setCommunityGardens] = useState<CommunityGarden[]>([]);
   const [selectedGarden, setSelectedGarden] = useState<CommunityGarden | null>(null);
   const [communityLoading, setCommunityLoading] = useState(false);
+  const [sharedWith, setSharedWith] = useState<string[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
   const [accountStatus, setAccountStatus] = useState<AccountStatus>("checking");
   const [accountName, setAccountName] = useState("");
   const [cloudReady, setCloudReady] = useState(false);
   const [toast, setToast] = useState("");
   const [burst, setBurst] = useState(0);
-  const [showWalk, setShowWalk] = useState(false);
   const [focusPlantId, setFocusPlantId] = useState<string>();
   const [showSettings, setShowSettings] = useState(false);
   const [rewardState, setRewardState] = useState<RewardState>({ spent: 0, inventory: [] });
@@ -164,6 +165,10 @@ export default function Home() {
         : doneToday.length > 0
           ? { title: "Сад заметил твои шаги", text: "С каждой отметкой становится больше света, травы и цветов." }
           : { title: "Утро только начинается", text: "Первая отметка разбудит свет и даст дереву новую ветвь." };
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") setShowAdd(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,9 +278,26 @@ export default function Home() {
     const endpoint = new URL("api/community", window.location.href).toString();
     fetch(endpoint, { headers: { Accept: "application/json" } })
       .then((response) => response.ok ? response.json() : { gardens: [] })
-      .then((data) => setCommunityGardens(Array.isArray(data.gardens) ? data.gardens : []))
+      .then((data) => {
+        setCommunityGardens(Array.isArray(data.gardens) ? data.gardens : []);
+        setSharedWith(Array.isArray(data.sharedWith) ? data.sharedWith : []);
+      })
       .catch(() => setCommunityGardens([]))
       .finally(() => setCommunityLoading(false));
+  }
+
+  function inviteToGarden() {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) return;
+    const endpoint = new URL("api/community", window.location.href).toString();
+    fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visitorEmail: email }) })
+      .then(async (response) => {
+        if (!response.ok) throw new Error((await response.json()).error ?? "Не получилось дать доступ");
+        setSharedWith((current) => current.includes(email) ? current : [...current, email]);
+        setInviteEmail("");
+        setToast("Калитка открыта — этот человек сможет увидеть ваш сад");
+      })
+      .catch((error) => setToast(error instanceof Error ? error.message : "Не получилось дать доступ"));
   }
 
   function toggleHabit(id: string) {
@@ -304,11 +326,16 @@ export default function Home() {
 
   function addHabit(input: NewHabitInput) {
     const id = crypto.randomUUID();
-    setHabits((current) => [...current, createStoredHabit(input, id, new Set(current.map((habit) => habit.gardenSlot)))]);
+    const habit = createStoredHabit(input, id, new Set(habits.map((item) => item.gardenSlot)));
+    const nextHabits = [...habits, habit];
+    setHabits(nextHabits);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHabits));
+    void saveHabitSnapshot(nextHabits);
     void enqueueOperation(newOperation("habit.create", id, input as unknown as Record<string, unknown>));
     setShowAdd(false);
-    setToast("Новая привычка посажена 🌱");
-    window.setTimeout(() => setToast(""), 2400);
+    sessionStorage.setItem("rost-pending-plant", id);
+    setToast("Семечко готово — выбери ему место в саду 🌱");
+    window.setTimeout(() => { window.location.href = `/garden-prototype?place=${encodeURIComponent(id)}`; }, 500);
   }
 
   function removeHabit(id: string) {
@@ -416,7 +443,7 @@ export default function Home() {
             <div><strong>{gardenProgress >= 1 ? "Первый сезон в полном цвету" : `${gardenPercent}% месячного пути`}</strong><span>Ствол, ветви, листья и цветы растут плавно — без скачков между картинками.</span></div>
             <div className="garden-actions">
               <span className="month-counter">{gardenDay}% сада</span>
-              <button className="walk-button" onClick={() => setShowWalk(true)}><span aria-hidden="true">↗</span> Войти в сад</button>
+              <a className="walk-button" href="/garden-prototype"><span aria-hidden="true">↗</span> Войти в 3D-сад</a>
               {(accountStatus === "connected" || accountStatus === "saving" || accountStatus === "signed-out") && <button className="visit-button" onClick={openCommunity}>Сады друзей</button>}
             </div>
           </div>
@@ -480,17 +507,14 @@ export default function Home() {
         </> : <>
           <p className="eyebrow">Сообщество</p><h2 id="community-title">Прогулка по садам</h2>
           <p className="modal-intro">Здесь виден только сам сад и общий прогресс. Личные данные и названия привычек не раскрываются в списке.</p>
+          <section className="garden-invite">
+            <div><strong>Открыть калитку другу</strong><span>Только приглашённый пользователь сможет увидеть ваш сад.</span></div>
+            <div className="garden-invite-row"><input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="Почта друга" /><button onClick={inviteToGarden}>Дать доступ</button></div>
+            {sharedWith.length > 0 && <small>Доступ есть: {sharedWith.join(", ")}</small>}
+          </section>
           {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся приглашённые садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><i className="garden-card-seed" aria-hidden="true">🌳</i><span><strong>{garden.displayName}</strong><small>{garden.plantCount} растений · {garden.totalCompletions} действий</small></span></button>)}</div>}
         </>}
       </section></div>}
-
-      {showWalk && <div className="walk-backdrop" role="presentation">
-        <section className="walk-modal" role="dialog" aria-modal="true" aria-labelledby="walk-title">
-          <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} plants={gardenPlants} focusPlantId={focusPlantId} explore label="Прогулка по своему живому саду" />
-          <div className="walk-header"><div><p>Твой живой сад</p><h2 id="walk-title">Прогулка · рост {gardenDay}%</h2></div><button onClick={() => setShowWalk(false)} aria-label="Выйти из сада">×</button></div>
-          <div className="walk-progress"><span style={{ width: `${gardenPercent}%` }} /><b>{gardenPercent}% месячного роста</b></div>
-        </section>
-      </div>}
 
       {toast && <div className="toast" role="status">{toast}</div>}
     </main>

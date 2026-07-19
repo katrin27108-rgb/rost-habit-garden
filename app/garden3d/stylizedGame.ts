@@ -4,7 +4,7 @@ export type GameWeather = "sun" | "cloud" | "rain";
 export type DecorationKind = "fertilizer" | "lantern" | "birdhouse" | "bench" | "pond";
 export type TimeOfDay = "day" | "evening" | "night";
 export type PlacementItem =
-  | { category: "plant"; kind: PlantKind; habitId: string; habitName: string; growth: number; durationDays: number }
+  | { category: "plant"; kind: PlantKind; species: string; habitId: string; habitName: string; growth: number; durationDays: number }
   | { category: "decoration"; kind: DecorationKind };
 
 export type GardenGameRuntime = {
@@ -21,10 +21,11 @@ export type GardenGameRuntime = {
 
 type GameOptions = {
   growth: number;
+  initialPlants?: Array<{ item: Extract<PlacementItem, { category: "plant" }>; position: { x: number; z: number } }>;
   onReady(): void;
   onNearby(notice: GameNotice): void;
   onInteract(notice: GameNotice): void;
-  onPlacementComplete(item: PlacementItem): void;
+  onPlacementComplete(item: PlacementItem, position: { x: number; z: number }): void;
 };
 
 type Planted = {
@@ -54,16 +55,16 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   const camera = new B.ArcRotateCamera(
     "illustrated third person camera",
     -Math.PI * .52,
-    .96,
-    15.2,
+    1.15,
+    17.2,
     new B.Vector3(0, 1.2, -6.5),
     scene,
   );
   camera.fov = .68;
   camera.lowerRadiusLimit = 10.5;
   camera.upperRadiusLimit = 19;
-  camera.lowerBetaLimit = .78;
-  camera.upperBetaLimit = 1.28;
+  camera.lowerBetaLimit = .96;
+  camera.upperBetaLimit = 1.36;
   camera.wheelPrecision = 38;
   camera.panningSensibility = 0;
   camera.angularSensibilityX = 3000;
@@ -109,6 +110,9 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     pink: material("pink flowers", "#f39aaa", .08),
     yellow: material("sunny flowers", "#f7d66d", .08),
     purple: material("violet flowers", "#9c73c8", .07),
+    white: material("cream white petals", "#fff4dc", .07),
+    berry: material("ripe strawberry red", "#d94343", .07),
+    flowerDark: material("flower centers", "#5e4431", .02),
     leaf: material("painted leaf", "#3c8a62", .03),
   };
 
@@ -246,7 +250,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
       root = cloneSource(shrubSource, `habit shrub ${planted.length}`);
       baseScale = 1.35;
     } else {
-      root = createStylizedFlowerGarden(B, scene, palette, shadows, `habit flower garden ${planted.length}`);
+      root = createStylizedFlowerGarden(B, scene, palette, shadows, `habit flower garden ${planted.length}`, item.species);
       baseScale = 1;
     }
     root.position.copyFrom(position);
@@ -300,7 +304,7 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
     else if (item.kind === "birdhouse") createBirdhouse(B, scene, palette, shadows, exact, decorationSerial++);
     else if (item.kind === "bench") createBench(B, scene, palette, shadows, exact, decorationSerial++);
     else createMiniPond(B, scene, palette, shadows, exact, decorationSerial++);
-    options.onPlacementComplete(item);
+    options.onPlacementComplete(item, { x: exact.x, z: exact.z });
   };
 
   scene.onPointerObservable.add((pointerInfo: any) => {
@@ -342,7 +346,11 @@ export async function createGardenGame(B: any, canvas: HTMLCanvasElement, option
   const setWeather = (value: GameWeather) => { weather = value; applyAtmosphere(); };
   const setTimeOfDay = (value: TimeOfDay) => { timeOfDay = value; applyAtmosphere(); };
   applyAtmosphere();
-  createPlantAt({ category: "plant", kind: "tree", habitId: "water", habitName: "Утренний стакан воды", growth: initialHabitGrowth, durationDays: 30 }, new B.Vector3(-4.5, .04, -3.4));
+  if (options.initialPlants?.length) {
+    options.initialPlants.forEach(({ item, position }) => createPlantAt(item, new B.Vector3(position.x, .04, position.z)));
+  } else {
+    createPlantAt({ category: "plant", kind: "tree", species: "birch", habitId: "water", habitName: "Утренний стакан воды", growth: initialHabitGrowth, durationDays: 30 }, new B.Vector3(-4.5, .04, -3.4));
+  }
 
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(.035, engine.getDeltaTime() / 1000);
@@ -667,32 +675,81 @@ function setPreviewValidity(B: any, preview: any, valid: boolean) {
   preview.metadata.previewMaterial.emissiveColor = B.Color3.FromHexString(value).scale(.22);
 }
 
-function createStylizedFlowerGarden(B: any, scene: any, palette: any, shadows: any, name: string) {
+function createStylizedFlowerGarden(B: any, scene: any, palette: any, shadows: any, name: string, species: string) {
   const root = new B.TransformNode(name, scene);
+  if (species === "strawberry") {
+    for (let index = 0; index < 11; index++) {
+      const radius = .16 + (index % 4) * .2;
+      const angle = index * 2.23;
+      const center = new B.Vector3(Math.cos(angle) * radius, .22 + index % 3 * .025, Math.sin(angle) * radius);
+      for (let leafIndex = 0; leafIndex < 3; leafIndex++) {
+        const leaf = B.MeshBuilder.CreateSphere(`${name} strawberry leaf ${index}-${leafIndex}`, { diameter: .32, segments: 10 }, scene);
+        leaf.parent = root;
+        const leafAngle = leafIndex * Math.PI * 2 / 3;
+        leaf.position.copyFrom(center.add(new B.Vector3(Math.cos(leafAngle) * .12, 0, Math.sin(leafAngle) * .12)));
+        leaf.scaling.set(.75, .22, 1.25);
+        leaf.rotation.y = -leafAngle;
+        leaf.material = palette.leaf;
+      }
+      if (index % 2 === 0) {
+        const berry = B.MeshBuilder.CreateSphere(`${name} strawberry ${index}`, { diameter: .22, segments: 12 }, scene);
+        berry.parent = root;
+        berry.position.copyFrom(center.add(new B.Vector3(.06, -.12, .04)));
+        berry.scaling.y = 1.25;
+        berry.material = palette.berry;
+        shadows.addShadowCaster(berry);
+      }
+    }
+    return root;
+  }
+  if (species === "lavender") {
+    for (let index = 0; index < 15; index++) {
+      const radius = .15 + (index % 5) * .16;
+      const angle = index * 2.37;
+      const height = .55 + index % 4 * .12;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const stem = B.MeshBuilder.CreateCylinder(`${name} lavender stem ${index}`, { height, diameter: .035, tessellation: 7 }, scene);
+      stem.parent = root;
+      stem.position.set(x, height / 2, z);
+      stem.material = palette.leaf;
+      for (let bloomIndex = 0; bloomIndex < 5; bloomIndex++) {
+        const bloom = B.MeshBuilder.CreateSphere(`${name} lavender bloom ${index}-${bloomIndex}`, { diameter: .13, segments: 8 }, scene);
+        bloom.parent = root;
+        bloom.position.set(x, height - bloomIndex * .09, z);
+        bloom.scaling.y = .72;
+        bloom.material = palette.purple;
+      }
+    }
+    return root;
+  }
   const flowerMaterials = [palette.coral, palette.pink, palette.purple, palette.yellow];
-  for (let index = 0; index < 13; index++) {
+  const count = species === "sunflower" ? 7 : species === "peony" ? 10 : 13;
+  for (let index = 0; index < count; index++) {
     const radius = .18 + (index % 5) * .16;
     const angle = index * 2.34;
-    const height = .42 + (index % 4) * .12;
+    const height = species === "sunflower" ? .8 + (index % 3) * .18 : .42 + (index % 4) * .12;
     const stem = B.MeshBuilder.CreateCylinder(`${name} stem ${index}`, { height, diameter: .045, tessellation: 7 }, scene);
     stem.parent = root;
     stem.position.set(Math.cos(angle) * radius, height / 2, Math.sin(angle) * radius);
     stem.material = palette.leaf;
     const center = new B.Vector3(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
-    for (let petal = 0; petal < 5; petal++) {
-      const petalAngle = petal * Math.PI * .4;
-      const mesh = B.MeshBuilder.CreateSphere(`${name} petal ${index}-${petal}`, { diameter: .18, segments: 10 }, scene);
+    const petalCount = species === "peony" ? 12 : species === "sunflower" ? 10 : 8;
+    const petalSize = species === "peony" ? .27 : species === "sunflower" ? .22 : .17;
+    for (let petal = 0; petal < petalCount; petal++) {
+      const petalAngle = petal * Math.PI * 2 / petalCount;
+      const mesh = B.MeshBuilder.CreateSphere(`${name} petal ${index}-${petal}`, { diameter: petalSize, segments: 10 }, scene);
       mesh.parent = root;
       mesh.position.copyFrom(center.add(new B.Vector3(Math.cos(petalAngle) * .1, 0, Math.sin(petalAngle) * .1)));
       mesh.scaling.set(.7, .35, 1.25);
       mesh.rotation.y = -petalAngle;
-      mesh.material = flowerMaterials[index % flowerMaterials.length];
+      mesh.material = species === "chamomile" ? palette.white : species === "sunflower" ? palette.yellow : species === "peony" ? (index % 2 ? palette.pink : palette.coral) : flowerMaterials[index % flowerMaterials.length];
       shadows.addShadowCaster(mesh);
     }
     const heart = B.MeshBuilder.CreateSphere(`${name} center ${index}`, { diameter: .13, segments: 10 }, scene);
     heart.parent = root;
     heart.position.copyFrom(center.add(new B.Vector3(0, .018, 0)));
-    heart.material = palette.yellow;
+    heart.material = species === "sunflower" ? palette.flowerDark : palette.yellow;
   }
   return root;
 }

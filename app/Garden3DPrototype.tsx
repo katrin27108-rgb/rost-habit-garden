@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { isStoredHabit, metricsForHabit, STORAGE_KEY, type StoredHabit } from "../lib/app-model";
+import { saveHabitSnapshot } from "../lib/offline-store";
+import type { PlantKind as SpeciesKind } from "../lib/domain";
 import { loadBabylon } from "./garden3d/babylon";
 import {
   createGardenGame,
@@ -36,14 +39,63 @@ const SHOP_ITEMS: Array<{ kind: DecorationKind; icon: string; title: string; tex
 
 type PendingPlacement = { item: PlacementItem; title: string; cost: number };
 
+const TREE_SPECIES = new Set<SpeciesKind>(["oak", "cherry", "birch", "willow"]);
+const FLOWER_SPECIES = new Set<SpeciesKind>(["lavender", "chamomile", "sunflower", "peony", "strawberry"]);
+
+function engineKind(species: SpeciesKind): PlantKind {
+  if (TREE_SPECIES.has(species)) return "tree";
+  if (FLOWER_SPECIES.has(species)) return "flowers";
+  return "shrub";
+}
+
+function durationDays(habit: StoredHabit) {
+  return Math.max(1, Math.round((new Date(`${habit.endsOn}T12:00:00`).getTime() - new Date(`${habit.startsOn}T12:00:00`).getTime()) / 86_400_000) + 1);
+}
+
+function todayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` as `${number}-${number}-${number}`;
+}
+
+function habitItem(habit: StoredHabit): Extract<PlacementItem, { category: "plant" }> {
+  return {
+    category: "plant",
+    kind: engineKind(habit.plantKind),
+    species: habit.plantKind,
+    habitId: habit.id,
+    habitName: habit.name,
+    growth: Math.round(metricsForHabit(habit, todayKey()).progress * 100),
+    durationDays: durationDays(habit),
+  };
+}
+
+function slotPosition(slot: number) {
+  const positions = [
+    [-4.5, -3.4], [4.7, -3.3], [-4.2, 5.4], [4.2, 5.2], [8.4, -.8], [-8.2, -5.6],
+    [8.1, 4.2], [-2.3, 8.2], [2.5, 8], [-10.8, -2], [10.8, -5.3], [6.7, -7.2],
+  ];
+  const [x, z] = positions[slot % positions.length];
+  return { x, z };
+}
+
+function loadSiteHabits(): StoredHabit[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as unknown[];
+    return Array.isArray(parsed) ? parsed.filter(isStoredHabit).filter((habit) => habit.status !== "deleted") : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function Garden3DPrototype() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<GardenGameRuntime | null>(null);
   const pendingRef = useRef<PendingPlacement | null>(null);
   const growthAnimationRef = useRef<number | null>(null);
+  const [siteHabits, setSiteHabits] = useState<StoredHabit[]>(loadSiteHabits);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
-  const [growth, setGrowth] = useState(34);
+  const [growth, setGrowth] = useState(() => siteHabits[0] ? Math.round(metricsForHabit(siteHabits[0], todayKey()).progress * 100) : 5);
   const [nearby, setNearby] = useState<GameNotice>(null);
   const [dialog, setDialog] = useState<GameNotice>(null);
   const [weather, setWeather] = useState<GameWeather>(() => initialWeather());
@@ -56,24 +108,42 @@ export default function Garden3DPrototype() {
   const [placement, setPlacement] = useState<PendingPlacement | null>(null);
   const [growthDemo, setGrowthDemo] = useState(false);
   const [toast, setToast] = useState("");
+  const focusHabit = siteHabits[0];
 
   useEffect(() => {
     let cancelled = false;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const requestedId = new URLSearchParams(window.location.search).get("place") ?? sessionStorage.getItem("rost-pending-plant");
+    const pendingHabit = siteHabits.find((habit) => habit.id === requestedId);
+    const initialPlants = siteHabits.filter((habit) => habit.id !== requestedId).map((habit) => ({
+      item: habitItem(habit),
+      position: habit.gardenPosition ?? slotPosition(habit.gardenSlot),
+    }));
     loadBabylon()
       .then((B) => createGardenGame(B, canvas, {
         growth,
+        initialPlants,
         onReady: () => { if (!cancelled) setReady(true); },
         onNearby: (notice) => { if (!cancelled) setNearby(notice); },
         onInteract: (notice) => { if (!cancelled) setDialog(expandNotice(notice, growth)); },
-        onPlacementComplete: () => {
+        onPlacementComplete: (placedItem, position) => {
           if (cancelled) return;
           const pending = pendingRef.current;
           if (!pending) return;
           if (pending.cost) setStars((value) => value - pending.cost);
           if (pending.item.category === "decoration" && pending.item.kind === "fertilizer") {
             setGrowth((value) => Math.min(100, value + 8));
+          }
+          if (placedItem.category === "plant") {
+            setSiteHabits((current) => {
+              const updated = current.map((habit) => habit.id === placedItem.habitId ? { ...habit, gardenPosition: position, updatedAt: new Date().toISOString() } : habit);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+              void saveHabitSnapshot(updated);
+              return updated;
+            });
+            sessionStorage.removeItem("rost-pending-plant");
+            window.history.replaceState({}, "", "/garden-prototype");
           }
           setToast(`${pending.title} размещён именно в выбранном месте`);
           pendingRef.current = null;
@@ -86,6 +156,12 @@ export default function Garden3DPrototype() {
           runtimeRef.current = runtime;
           runtime.setTimeOfDay(timeFromDevice());
           runtime.setWeather(initialWeather());
+          if (pendingHabit) {
+            const pending: PendingPlacement = { item: habitItem(pendingHabit), title: pendingHabit.name, cost: 0 };
+            pendingRef.current = pending;
+            setPlacement(pending);
+            runtime.beginPlacement(pending.item);
+          }
         }
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Игровой сад не запустился"));
@@ -98,7 +174,10 @@ export default function Garden3DPrototype() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => runtimeRef.current?.setGrowth(growth), [growth]);
+  useEffect(() => {
+    if (focusHabit) runtimeRef.current?.setHabitGrowth(focusHabit.id, growth);
+    else runtimeRef.current?.setGrowth(growth);
+  }, [focusHabit, growth]);
   useEffect(() => () => {
     if (growthAnimationRef.current !== null) cancelAnimationFrame(growthAnimationRef.current);
   }, []);
@@ -151,6 +230,7 @@ export default function Garden3DPrototype() {
       item: {
         category: "plant",
         kind: selectedPlant,
+        species: selectedPlant,
         habitId: `habit-${Date.now()}`,
         habitName: name,
         growth: 5,
@@ -205,7 +285,7 @@ export default function Garden3DPrototype() {
       </header>
 
       <section className={styles.habitCard}>
-        <div className={styles.habitTitle}><div><small>ПРИВЫЧКА · 30 ДНЕЙ</small><strong>Утренний стакан воды</strong></div><b>{growth}%</b></div>
+        <div className={styles.habitTitle}><div><small>ПРИВЫЧКА · {focusHabit ? durationDays(focusHabit) : 30} ДНЕЙ</small><strong>{focusHabit?.name ?? "Утренний стакан воды"}</strong></div><b>{growth}%</b></div>
         <input aria-label="Рост растения" type="range" min="5" max="100" value={growth} onChange={(event) => changeGrowth(Number(event.target.value))} />
         <div className={styles.growthActions}>
           <p>Растение растёт плавно все 30 дней — без переключения между картинками.</p>
@@ -220,7 +300,7 @@ export default function Garden3DPrototype() {
       </section>
 
       <nav className={styles.toolButtons} aria-label="Инструменты сада">
-        <button className={activePanel === "plant" ? styles.activeTool : ""} onClick={() => setActivePanel((value) => value === "plant" ? null : "plant")}><span>♧</span>Посадить</button>
+        <a href="/?new=1"><span>♧</span>Новая привычка</a>
         <button className={activePanel === "shop" ? styles.activeTool : ""} onClick={() => setActivePanel((value) => value === "shop" ? null : "shop")}><span>✦</span>Магазин</button>
       </nav>
 

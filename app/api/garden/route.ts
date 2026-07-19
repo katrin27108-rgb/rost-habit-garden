@@ -12,6 +12,7 @@ type HabitPayload = {
   completions: string[];
   plantKind?: string;
   gardenSlot?: number;
+  gardenPosition?: { x?: number; z?: number };
   startsOn?: string;
   endsOn?: string;
   schedule?: { type?: string; weekdays?: number[]; times?: number };
@@ -63,6 +64,9 @@ export async function POST(request: Request) {
     return {
       ...legacy, schemaVersion: 2, plantKind: String(habit.plantKind ?? "chamomile").slice(0, 20),
       gardenSlot: Math.max(0, Math.min(63, Number(habit.gardenSlot) || 0)), startsOn: String(habit.startsOn ?? "").slice(0, 10),
+      gardenPosition: habit.gardenPosition && Number.isFinite(Number(habit.gardenPosition.x)) && Number.isFinite(Number(habit.gardenPosition.z))
+        ? { x: Math.max(-13.5, Math.min(13.5, Number(habit.gardenPosition.x))), z: Math.max(-11.5, Math.min(11.3, Number(habit.gardenPosition.z))) }
+        : undefined,
       endsOn: String(habit.endsOn ?? "").slice(0, 10), schedule: { type: ruleType, weekdays: habit.schedule?.weekdays?.map(Number).filter((day) => day >= 1 && day <= 7), times: Math.max(1, Math.min(7, Number(habit.schedule?.times) || 1)) },
       status: String(habit.status ?? "active").slice(0, 20), seasonNumber: Math.max(1, Number(habit.seasonNumber) || 1),
       reminder: { enabled: Boolean(habit.reminder?.enabled), time: String(habit.reminder?.time ?? "09:00").slice(0, 5), timezone: String(habit.reminder?.timezone ?? "UTC").slice(0, 80) },

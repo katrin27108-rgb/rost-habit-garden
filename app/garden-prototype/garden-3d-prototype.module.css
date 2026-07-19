@@ -322,7 +322,8 @@
   gap: 7px;
 }
 
-.toolButtons button {
+.toolButtons button,
+.toolButtons a {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -335,6 +336,7 @@
   font-size: 10px;
   font-weight: 850;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .toolButtons span {
@@ -342,12 +344,14 @@
   font-size: 17px;
 }
 
-.toolButtons button.activeTool {
+.toolButtons button.activeTool,
+.toolButtons a.activeTool {
   border-color: #ffd77a;
   background: var(--coral);
 }
 
-.toolButtons button.activeTool span {
+.toolButtons button.activeTool span,
+.toolButtons a.activeTool span {
   color: #fff8dc;
 }
 

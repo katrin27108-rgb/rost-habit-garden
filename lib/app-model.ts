@@ -26,6 +26,7 @@ export type StoredHabit = {
   completions: DateKey[];
   plantKind: PlantKind;
   gardenSlot: number;
+  gardenPosition?: { x: number; z: number };
   startsOn: DateKey;
   endsOn: DateKey;
   schedule: ScheduleRule;
