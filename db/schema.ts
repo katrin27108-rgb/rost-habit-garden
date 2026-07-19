@@ -18,3 +18,18 @@ export const gardenAccess = sqliteTable("garden_access", {
   visitorEmail: text("visitor_email").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [primaryKey({ columns: [table.ownerEmail, table.visitorEmail] })]);
+
+export const userAccounts = sqliteTable("user_accounts", {
+  email: text("email").primaryKey(),
+  displayName: text("display_name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const userSessions = sqliteTable("user_sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  email: text("email").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});

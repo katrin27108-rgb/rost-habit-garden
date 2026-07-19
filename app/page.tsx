@@ -9,6 +9,7 @@ import HabitWizard from "./HabitWizard";
 import LivingGarden, { type GardenPlant } from "./LivingGarden";
 import StatsPanel from "./StatsPanel";
 import SettingsModal from "./SettingsModal";
+import AuthModal from "./AuthModal";
 
 type Habit = StoredHabit;
 
@@ -76,6 +77,7 @@ export default function Home() {
   const [burst, setBurst] = useState(0);
   const [focusPlantId, setFocusPlantId] = useState<string>();
   const [showSettings, setShowSettings] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [rewardState, setRewardState] = useState<RewardState>({ spent: 0, inventory: [] });
 
   const today = dateKey();
@@ -268,7 +270,7 @@ export default function Home() {
 
   function openCommunity() {
     if (accountStatus === "signed-out") {
-      window.location.href = "/signin-with-chatgpt?return_to=/";
+      setShowAuth(true);
       return;
     }
     if (accountStatus !== "connected" && accountStatus !== "saving") return;
@@ -284,6 +286,10 @@ export default function Home() {
       })
       .catch(() => setCommunityGardens([]))
       .finally(() => setCommunityLoading(false));
+  }
+
+  function signOut() {
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.reload());
   }
 
   function inviteToGarden() {
@@ -371,7 +377,7 @@ export default function Home() {
         <div className="topbar-date"><span>Сегодня</span><strong>{formattedDate}</strong></div>
         <div className="topbar-stats" aria-label="Краткая статистика">
           {accountStatus === "signed-out" ? (
-            <a className="sync-pill" href="/signin-with-chatgpt?return_to=/"><b>☁</b><span>Войти</span></a>
+            <button className="sync-pill" onClick={() => setShowAuth(true)}><b>☁</b><span>Войти</span></button>
           ) : accountStatus === "connected" || accountStatus === "saving" ? (
             <button className="sync-pill is-connected" onClick={openCommunity} aria-label="Облачный профиль и сады"><b>☁</b><span>{accountName}</span></button>
           ) : accountStatus === "unavailable" ? (
@@ -494,6 +500,8 @@ export default function Home() {
         <div className="shop-grid">{SHOP.map((item) => <button key={item.code} disabled={energy < item.price} onClick={() => buyItem(item.code, item.price)}><span>{item.icon}</span><b>{item.title}</b><small>{item.price} ✦</small></button>)}</div>
       </section></div>}
 
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {showCommunity && <div className="modal-backdrop" role="presentation"><section className="community-modal" role="dialog" aria-modal="true" aria-labelledby="community-title">
@@ -513,6 +521,7 @@ export default function Home() {
             {sharedWith.length > 0 && <small>Доступ есть: {sharedWith.join(", ")}</small>}
           </section>
           {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся приглашённые садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><i className="garden-card-seed" aria-hidden="true">🌳</i><span><strong>{garden.displayName}</strong><small>{garden.plantCount} растений · {garden.totalCompletions} действий</small></span></button>)}</div>}
+          <button className="community-signout" type="button" onClick={signOut}>Выйти из аккаунта</button>
         </>}
       </section></div>}
 

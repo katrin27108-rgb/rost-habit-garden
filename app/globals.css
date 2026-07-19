@@ -308,10 +308,10 @@ h2 { font-size: 24px; line-height: 1.08; }
 .quick-stats small { font-size: 9px; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(18, 39, 32, .48); backdrop-filter: blur(9px); animation: fade-in .2s ease; }
-.habit-modal, .achievement-modal, .community-modal, .settings-modal { width: min(480px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 32px; position: relative; border: 1px solid rgba(255,255,255,.5); border-radius: 27px; background: #fffefa; box-shadow: 0 30px 90px rgba(13, 39, 30, .22); animation: modal-up .25s ease; }
+.habit-modal, .achievement-modal, .community-modal, .settings-modal, .auth-modal { width: min(480px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 32px; position: relative; border: 1px solid rgba(255,255,255,.5); border-radius: 27px; background: #fffefa; box-shadow: 0 30px 90px rgba(13, 39, 30, .22); animation: modal-up .25s ease; }
 .achievement-modal { width: min(650px, 100%); }
 .community-modal { width: min(720px, 100%); }
-.habit-modal h2, .achievement-modal h2, .community-modal h2 { margin-bottom: 25px; font-size: 29px; }
+.habit-modal h2, .achievement-modal h2, .community-modal h2, .auth-modal h2 { margin-bottom: 25px; font-size: 29px; }
 .modal-close { position: absolute; top: 17px; right: 17px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #f0efe9; color: #65756d; font-size: 21px; cursor: pointer; }
 .field-label { display: block; margin: 19px 0 8px; color: #6e7b74; font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .habit-modal input { width: 100%; height: 52px; padding: 0 15px; outline: none; border: 1px solid #dedfd7; border-radius: 14px; background: #fff; color: var(--ink); font-size: 13px; }
@@ -384,6 +384,17 @@ h2 { font-size: 24px; line-height: 1.08; }
 .community-empty > span { font-size: 30px; }
 .community-empty strong { margin-top: 8px; color: var(--ink); }
 .community-empty p { max-width: 330px; margin: 7px 0 0; font-size: 11px; line-height: 1.5; }
+.auth-tabs { display:flex; gap:6px; margin-bottom:20px; padding:5px; border-radius:14px; background:#f0f2ea; }
+.auth-tabs button { flex:1; height:38px; border:0; border-radius:10px; background:transparent; color:var(--muted); font-size:11px; font-weight:800; cursor:pointer; }
+.auth-tabs button.is-active { background:#fff; color:var(--deep-green); box-shadow:0 4px 14px rgba(24,54,42,.08); }
+.auth-form { display:grid; gap:14px; }
+.auth-form label span { display:block; margin-bottom:7px; color:#54665e; font-size:10px; font-weight:800; }
+.auth-form input { width:100%; height:50px; padding:0 14px; border:1px solid #dfe1d8; border-radius:14px; outline:none; background:#fff; color:var(--ink); }
+.auth-form input:focus { border-color:#7c9b69; box-shadow:0 0 0 4px rgba(124,155,105,.12); }
+.auth-form .modal-submit { margin-top:5px; }
+.auth-error { margin:0; padding:10px 12px; border-radius:11px; background:#fff0ed; color:#a34d3f; font-size:10px; }
+.auth-note { margin:14px 0 0; color:var(--muted); font-size:9px; line-height:1.5; text-align:center; }
+.community-signout { display:block; margin:20px auto 0; border:0; background:transparent; color:#78877f; font-size:10px; text-decoration:underline; cursor:pointer; }
 .back-button { margin: 0 0 22px; padding: 0; border: 0; background: transparent; color: #5d7368; font-size: 10px; font-weight: 800; cursor: pointer; }
 .visited-garden { height: 330px; position: relative; overflow: hidden; border-radius: 21px; background: #d9e2ce; }
 .visited-garden img { width: 100%; height: 100%; object-fit: cover; object-position: 42% center; }
@@ -469,7 +480,7 @@ h2 { font-size: 24px; line-height: 1.08; }
   .garden-joystick { right: 12px; bottom: 26px; }
   .walk-progress { left: 14px; right: 14px; }
   .choice-row { grid-template-columns: repeat(4, 1fr); }
-  .habit-modal, .achievement-modal, .community-modal, .settings-modal { padding: 29px 20px 22px; }
+  .habit-modal, .achievement-modal, .community-modal, .settings-modal, .auth-modal { padding: 29px 20px 22px; }
   .achievement-grid article { grid-template-columns: 38px 1fr; }
   .achievement-grid article > b { grid-column: 2; width: max-content; }
   .community-grid { grid-template-columns: 1fr; }
