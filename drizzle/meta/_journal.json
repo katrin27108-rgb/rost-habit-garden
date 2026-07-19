@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784195171475,
+      "tag": "0000_young_dark_phoenix",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784450989401,
+      "tag": "0001_chubby_ser_duncan",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784459111829,
+      "tag": "0002_breezy_boomerang",
+      "breakpoints": true
+    }
+  ]
+}
