@@ -1,0 +1,29 @@
+name: Ошибка
+description: Сообщить о воспроизводимой проблеме в приложении
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что произошло?
+      description: Опишите фактическое и ожидаемое поведение.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести?
+      placeholder: Пронумерованные шаги, маршрут и состояние входа.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Устройство и браузер
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Скриншоты или сообщения об ошибке
