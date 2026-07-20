@@ -315,7 +315,6 @@ export default function Home() {
     );
 
     if (!isDone) {
-      setFocusPlantId(id);
       setBurst((value) => value + 1);
       const nextCount = doneToday.length + 1;
       setToast(nextCount === visibleHabits.length ? "Сад расцвёл — день завершён 🌼" : `+10 энергии · «${habit.name}» дало саду жизнь`);
