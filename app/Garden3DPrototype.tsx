@@ -117,10 +117,15 @@ export default function Garden3DPrototype() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const restored = loadSiteHabits();
-    setSiteHabits(restored);
-    setGrowth(restored[0] ? Math.round(metricsForHabit(restored[0], todayKey()).progress * 100) : 5);
-    setSiteHabitsLoaded(true);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSiteHabits(restored);
+      setGrowth(restored[0] ? Math.round(metricsForHabit(restored[0], todayKey()).progress * 100) : 5);
+      setSiteHabitsLoaded(true);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
