@@ -2,6 +2,20 @@
 
 import { FormEvent, useState } from "react";
 
+type AuthResponse = { error?: string };
+
+async function readAuthResponse(response: Response): Promise<AuthResponse> {
+  const body = await response.text();
+  if (!body.trim()) return {};
+
+  try {
+    const data: unknown = JSON.parse(body);
+    return data && typeof data === "object" ? data as AuthResponse : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function AuthModal({ onClose }: { onClose(): void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -20,11 +34,11 @@ export default function AuthModal({ onClose }: { onClose(): void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode, email, password, displayName }),
       });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Не удалось войти");
+      const data = await readAuthResponse(response);
+      if (!response.ok) throw new Error(data.error ?? "Сервис временно недоступен. Попробуйте ещё раз.");
       window.location.reload();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Не удалось войти");
+      setError(cause instanceof Error ? cause.message : "Не удалось выполнить запрос. Попробуйте ещё раз.");
       setBusy(false);
     }
   }
