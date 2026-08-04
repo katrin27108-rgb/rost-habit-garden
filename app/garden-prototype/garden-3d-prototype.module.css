@@ -17,6 +17,24 @@
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+.embedded .header,
+.embedded .habitCard,
+.embedded .weatherCard,
+.embedded .toolButtons,
+.embedded .workshop,
+.embedded .placementHint,
+.embedded .help,
+.embedded .prompt,
+.embedded .dialog,
+.embedded .toast,
+.embedded .joystick {
+  display: none;
+}
+
+.embedded::after {
+  border-width: 3px;
+}
+
 .canvas {
   position: absolute;
   inset: 0;

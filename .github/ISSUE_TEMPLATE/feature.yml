@@ -1,0 +1,22 @@
+name: Улучшение
+description: Предложить изменение продукта или сада
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Какой результат нужен пользователю?
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Пользовательский сценарий
+      description: Что человек делает до, во время и после изменения?
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Ограничения и референсы

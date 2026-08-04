@@ -92,14 +92,15 @@ export default function Garden3DPrototype() {
   const runtimeRef = useRef<GardenGameRuntime | null>(null);
   const pendingRef = useRef<PendingPlacement | null>(null);
   const growthAnimationRef = useRef<number | null>(null);
-  const [siteHabits, setSiteHabits] = useState<StoredHabit[]>(loadSiteHabits);
+  const [siteHabits, setSiteHabits] = useState<StoredHabit[]>([]);
+  const [siteHabitsLoaded, setSiteHabitsLoaded] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
-  const [growth, setGrowth] = useState(() => siteHabits[0] ? Math.round(metricsForHabit(siteHabits[0], todayKey()).progress * 100) : 5);
+  const [growth, setGrowth] = useState(5);
   const [nearby, setNearby] = useState<GameNotice>(null);
   const [dialog, setDialog] = useState<GameNotice>(null);
-  const [weather, setWeather] = useState<GameWeather>(() => initialWeather());
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => timeFromDevice());
+  const [weather, setWeather] = useState<GameWeather>("sun");
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>("day");
   const [activePanel, setActivePanel] = useState<"plant" | "shop" | null>(null);
   const [stars, setStars] = useState(46);
   const [habitName, setHabitName] = useState("");
@@ -108,9 +109,27 @@ export default function Garden3DPrototype() {
   const [placement, setPlacement] = useState<PendingPlacement | null>(null);
   const [growthDemo, setGrowthDemo] = useState(false);
   const [toast, setToast] = useState("");
+  const [embedded, setEmbedded] = useState(false);
   const focusHabit = siteHabits[0];
 
   useEffect(() => {
+    setEmbedded(new URLSearchParams(window.location.search).get("embed") === "1");
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const restored = loadSiteHabits();
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSiteHabits(restored);
+      setGrowth(restored[0] ? Math.round(metricsForHabit(restored[0], todayKey()).progress * 100) : 5);
+      setSiteHabitsLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!siteHabitsLoaded) return;
     let cancelled = false;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -172,7 +191,7 @@ export default function Garden3DPrototype() {
     };
     // Сцена создаётся один раз; изменения передаются в игровой движок отдельно.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [siteHabitsLoaded]);
 
   useEffect(() => {
     if (focusHabit) runtimeRef.current?.setHabitGrowth(focusHabit.id, growth);
@@ -192,7 +211,13 @@ export default function Garden3DPrototype() {
       setTimeOfDay(next);
       runtimeRef.current?.setTimeOfDay(next);
     };
+    const syncWeather = () => {
+      const next = initialWeather();
+      setWeather(next);
+      runtimeRef.current?.setWeather(next);
+    };
     syncTime();
+    syncWeather();
     const timer = window.setInterval(syncTime, 60_000);
     return () => window.clearInterval(timer);
   }, []);
@@ -273,7 +298,7 @@ export default function Garden3DPrototype() {
   };
 
   return (
-    <main className={styles.game}>
+    <main className={`${styles.game} ${embedded ? styles.embedded : ""}`}>
       <canvas ref={canvasRef} className={styles.canvas} aria-label="Трёхмерный игровой сад, по которому можно ходить" />
       {!ready && !error && <div className={styles.loading}><span />Создаю игровое пространство…</div>}
       {error && <div className={styles.error}><strong>Сад не загрузился</strong><span>{error}</span></div>}

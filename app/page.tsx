@@ -9,6 +9,7 @@ import HabitWizard from "./HabitWizard";
 import LivingGarden, { type GardenPlant } from "./LivingGarden";
 import StatsPanel from "./StatsPanel";
 import SettingsModal from "./SettingsModal";
+import AuthModal from "./AuthModal";
 
 type Habit = StoredHabit;
 
@@ -74,8 +75,8 @@ export default function Home() {
   const [cloudReady, setCloudReady] = useState(false);
   const [toast, setToast] = useState("");
   const [burst, setBurst] = useState(0);
-  const [focusPlantId, setFocusPlantId] = useState<string>();
   const [showSettings, setShowSettings] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [rewardState, setRewardState] = useState<RewardState>({ spent: 0, inventory: [] });
 
   const today = dateKey();
@@ -89,11 +90,6 @@ export default function Home() {
   const gardenProgress = visibleHabits.length ? visibleHabits.reduce((sum, habit) => sum + (metrics.get(habit.id)?.progress ?? 0), 0) / visibleHabits.length : 0;
   const gardenPercent = Math.round(gardenProgress * 100);
   const gardenDay = gardenPercent;
-  const gardenPlants = useMemo<GardenPlant[]>(() => visibleHabits.map((habit) => ({
-    id: habit.id, kind: habit.plantKind, slot: habit.gardenSlot, color: habit.color,
-    progress: metrics.get(habit.id)?.progress ?? 0, health: metrics.get(habit.id)?.health ?? 100,
-    fertilized: Boolean(rewardState.fertilizerUntil && new Date(rewardState.fertilizerUntil) > new Date()),
-  })), [habits, metrics, rewardState.fertilizerUntil]);
   const gardenStage = Math.min(4, Math.max(1, Math.ceil(gardenProgress * 4)));
   const allCompletionDates = habits.flatMap((habit) => habit.completions).sort();
   const quietDays = daysSince(allCompletionDates.at(-1));
@@ -268,7 +264,7 @@ export default function Home() {
 
   function openCommunity() {
     if (accountStatus === "signed-out") {
-      window.location.href = "/signin-with-chatgpt?return_to=/";
+      setShowAuth(true);
       return;
     }
     if (accountStatus !== "connected" && accountStatus !== "saving") return;
@@ -284,6 +280,10 @@ export default function Home() {
       })
       .catch(() => setCommunityGardens([]))
       .finally(() => setCommunityLoading(false));
+  }
+
+  function signOut() {
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.reload());
   }
 
   function inviteToGarden() {
@@ -315,7 +315,6 @@ export default function Home() {
     );
 
     if (!isDone) {
-      setFocusPlantId(id);
       setBurst((value) => value + 1);
       const nextCount = doneToday.length + 1;
       setToast(nextCount === visibleHabits.length ? "Сад расцвёл — день завершён 🌼" : `+10 энергии · «${habit.name}» дало саду жизнь`);
@@ -371,7 +370,7 @@ export default function Home() {
         <div className="topbar-date"><span>Сегодня</span><strong>{formattedDate}</strong></div>
         <div className="topbar-stats" aria-label="Краткая статистика">
           {accountStatus === "signed-out" ? (
-            <a className="sync-pill" href="/signin-with-chatgpt?return_to=/"><b>☁</b><span>Войти</span></a>
+            <button className="sync-pill" onClick={() => setShowAuth(true)}><b>☁</b><span>Войти</span></button>
           ) : accountStatus === "connected" || accountStatus === "saving" ? (
             <button className="sync-pill is-connected" onClick={openCommunity} aria-label="Облачный профиль и сады"><b>☁</b><span>{accountName}</span></button>
           ) : accountStatus === "unavailable" ? (
@@ -430,9 +429,15 @@ export default function Home() {
           </div>
 
           <div className={`garden-scene ${isResting ? "is-resting" : ""} ${isWilting ? "is-wilting" : ""}`}>
-            <LivingGarden progress={gardenProgress} todayEnergy={todayProgress / 100} quietDays={quietDays} burst={burst} plants={gardenPlants} focusPlantId={focusPlantId} />
+            <iframe
+              className="garden-live-frame"
+              src="/garden-prototype?embed=1"
+              title="Живой интерактивный 3D-сад"
+              loading="eager"
+            />
+            <a className="garden-open-world" href="/garden-prototype"><span aria-hidden="true">↗</span> Развернуть и гулять</a>
             <div className="garden-story">
-              <span className="garden-mood">{isWilting ? "сад скучает" : isResting ? "сад отдыхает" : todayProgress === 100 ? "полное сияние" : "сад растёт"}</span>
+              <span className="garden-mood">3D · {isWilting ? "сад скучает" : isResting ? "сад отдыхает" : todayProgress === 100 ? "полное сияние" : "сад растёт"}</span>
               <strong>{gardenCopy.title}</strong>
               <p>{gardenCopy.text}</p>
             </div>
@@ -494,6 +499,8 @@ export default function Home() {
         <div className="shop-grid">{SHOP.map((item) => <button key={item.code} disabled={energy < item.price} onClick={() => buyItem(item.code, item.price)}><span>{item.icon}</span><b>{item.title}</b><small>{item.price} ✦</small></button>)}</div>
       </section></div>}
 
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {showCommunity && <div className="modal-backdrop" role="presentation"><section className="community-modal" role="dialog" aria-modal="true" aria-labelledby="community-title">
@@ -513,6 +520,7 @@ export default function Home() {
             {sharedWith.length > 0 && <small>Доступ есть: {sharedWith.join(", ")}</small>}
           </section>
           {communityLoading ? <div className="community-empty">Открываю калитки…</div> : communityGardens.length === 0 ? <div className="community-empty"><span>🌿</span><strong>Пока здесь тихо</strong><p>Когда появятся приглашённые садовники, их сады будут ждать здесь.</p></div> : <div className="community-grid">{communityGardens.map((garden) => <button key={garden.publicId} onClick={() => setSelectedGarden(garden)}><i className="garden-card-seed" aria-hidden="true">🌳</i><span><strong>{garden.displayName}</strong><small>{garden.plantCount} растений · {garden.totalCompletions} действий</small></span></button>)}</div>}
+          <button className="community-signout" type="button" onClick={signOut}>Выйти из аккаунта</button>
         </>}
       </section></div>}
 
