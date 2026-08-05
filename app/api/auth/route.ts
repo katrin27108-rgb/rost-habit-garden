@@ -9,7 +9,13 @@ function cleanEmail(value: unknown) {
 
 export async function POST(request: Request) {
   try {
-    const payload = await request.json() as { mode?: string; email?: string; password?: string; displayName?: string };
+    const rawBody = await request.text();
+    let payload: { mode?: string; email?: string; password?: string; displayName?: string };
+    try {
+      payload = JSON.parse(rawBody) as { mode?: string; email?: string; password?: string; displayName?: string };
+    } catch {
+      return Response.json({ error: "Некорректные данные запроса" }, { status: 400 });
+    }
     const mode = payload.mode === "register" ? "register" : "login";
     const email = cleanEmail(payload.email);
     const password = String(payload.password ?? "");
