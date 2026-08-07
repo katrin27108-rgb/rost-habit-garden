@@ -71,10 +71,11 @@ flowchart TD
 ```mermaid
 flowchart LR
   Route[app/living-garden/page.tsx] --> Prototype[LivingPlantsPrototype.tsx]
-  Prototype --> Atlas[public/plant-growth-atlas.png]
+  Prototype --> Plants[public/plants/*.webp: отдельные цельные иллюстрации]
   Prototype --> DemoState[Локальное состояние пробной страницы]
   DemoState --> Growth[Пять стадий роста по выполненным дням]
-  DemoState --> Care[Доброе слово и удобрение: только визуальный отклик]
+  DemoState --> Checklist[Отметка по клику и список выполненного]
+  DemoState --> Care[Доброе слово и удобрение: анимированный визуальный отклик]
 ```
 
 Маршрут `/living-garden` — изолированная пробная визуальная концепция. Он не меняет сохранённую модель привычек, API или активную 3D-сцену. В прототипе одна цель по-прежнему соответствует одному выбранному растению; декоративные взаимодействия не увеличивают прогресс.

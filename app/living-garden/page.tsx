@@ -7,13 +7,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Твоя привычка становится живой",
     description: "Живая оранжерея — пробный 2D-формат сада привычек «Рост».",
-    images: [{ url: "https://rost-habit-garden.katrin27108-rost.workers.dev/living-garden-og.png", width: 1732, height: 907 }],
+    images: [{ url: "https://rost-habit-garden.katrin27108-rost.workers.dev/living-garden-og-v2.webp", width: 1732, height: 907 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Твоя привычка становится живой",
     description: "Живая оранжерея — пробный 2D-формат сада привычек «Рост».",
-    images: ["https://rost-habit-garden.katrin27108-rost.workers.dev/living-garden-og.png"],
+    images: ["https://rost-habit-garden.katrin27108-rost.workers.dev/living-garden-og-v2.webp"],
   },
 };
 
