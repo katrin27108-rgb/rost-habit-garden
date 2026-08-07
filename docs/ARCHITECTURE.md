@@ -66,6 +66,19 @@ flowchart TD
 
 `app/GardenPrototype.tsx` и `app/garden/` относятся к старому 2D/canvas-прототипу и не входят в активный граф.
 
+## Пробная 2D-оранжерея
+
+```mermaid
+flowchart LR
+  Route[app/living-garden/page.tsx] --> Prototype[LivingPlantsPrototype.tsx]
+  Prototype --> Atlas[public/plant-growth-atlas.png]
+  Prototype --> DemoState[Локальное состояние пробной страницы]
+  DemoState --> Growth[Пять стадий роста по выполненным дням]
+  DemoState --> Care[Доброе слово и удобрение: только визуальный отклик]
+```
+
+Маршрут `/living-garden` — изолированная пробная визуальная концепция. Он не меняет сохранённую модель привычек, API или активную 3D-сцену. В прототипе одна цель по-прежнему соответствует одному выбранному растению; декоративные взаимодействия не увеличивают прогресс.
+
 ## Маршрутизатор задач агента
 
 ```mermaid
@@ -75,9 +88,11 @@ flowchart TD
   Kind -->|Правила привычки| Domain[lib/domain.ts и lib/app-model.ts]
   Kind -->|Offline и sync| Storage[lib/offline-store.ts и app/api/garden]
   Kind -->|Аккаунты и гости| API[app/api/auth и app/api/community]
-  Kind -->|Интерактивный сад| Active3D[app/Garden3DPrototype.tsx и app/garden3d]
+  Kind -->|Активный 3D-сад| Active3D[app/Garden3DPrototype.tsx и app/garden3d]
+  Kind -->|Пробная 2D-оранжерея| Living2D[app/living-garden]
   Kind -->|Схема данных| Database[db и drizzle]
   Active3D -. не путать .-> Legacy[app/GardenPrototype.tsx и app/garden]
+  Living2D -. отдельная концепция .-> Active3D
 ```
 
 ## Git и выпуск
