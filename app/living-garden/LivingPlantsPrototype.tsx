@@ -57,6 +57,10 @@ function growthStage(plant: PlantHabit) {
   return Math.min(4, Math.floor((plant.completedDays / plant.durationDays) * 5));
 }
 
+function growthProgress(plant: PlantHabit) {
+  return Math.min(1, Math.max(0, plant.completedDays / plant.durationDays));
+}
+
 function stageName(stage: number) {
   return ["Семечко", "Первые листья", "Молодое растение", "Скоро цветение", "Взрослое растение"][stage];
 }
@@ -68,10 +72,18 @@ function progressFor(plant: PlantHabit) {
 function PlantArt({ plant, effect, className = "" }: { plant: PlantHabit; effect?: CareEffect; className?: string }) {
   const plantSpecies = getSpecies(plant.species);
   const stage = growthStage(plant);
+  const progress = growthProgress(plant);
+  const dailyGrowth = 1 / plant.durationDays;
+  const scale = 0.12 + Math.pow(progress, 0.7) * 0.88;
+  const previousScale = 0.12 + Math.pow(Math.max(0, progress - dailyGrowth), 0.7) * 0.88;
   return (
     <div
-      className={`${styles.plantArt} ${styles[`stage${stage}`]} ${effect ? styles[effect] : ""} ${className}`}
-      style={{ "--accent": plantSpecies.accent } as CSSProperties}
+      className={`${styles.plantArt} ${effect ? styles[effect] : ""} ${className}`}
+      style={{
+        "--accent": plantSpecies.accent,
+        "--plant-scale": scale,
+        "--plant-previous-scale": previousScale,
+      } as CSSProperties}
       role="img"
       aria-label={`${plantSpecies.name}, стадия: ${stageName(stage)}`}
     >
