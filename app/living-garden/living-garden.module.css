@@ -184,18 +184,24 @@
 .cardHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .cardHeading h2,.rhythmCard h2 { margin: 8px 0 0; font: 500 28px Georgia,serif; }
 .cardHeading > b { padding: 8px 11px; border-radius: 100px; background: #eaf0df; color: #667b55; font-size: 11px; }
+.achievementGroupHeading { margin-top:21px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.achievementGroupHeading > span { color:#6f8468; font-size:9px; font-weight:900; letter-spacing:.13em; }
+.achievementGroupHeading > p { margin:0; color:#78877f; font-size:9px; }
 .achievementGrid { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.dailyAchievementGrid { margin-top:9px; grid-template-columns:repeat(3,1fr); }
 .achievement { min-height: 102px; padding: 13px; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px; border: 1px solid #dfe2d8; border-radius: 17px; background: #fffdf8; }
 .achievement > span { width: 38px; height: 38px; display:grid; place-items:center; border-radius:50%; background:#edf0e5; color:#708460; font-size:18px; }
 .achievement b { font: 500 14px Georgia,serif; }
 .achievement p { margin: 4px 0; color:#64766d; font-size:10px; line-height:1.35; }
 .achievement small { color:#78877f; font-size:10px; }
-.achievement > button { min-width:58px; min-height:34px; padding:7px; border:0; border-radius:100px; background:#e6e8df; color:#778078; font-size:10px; font-weight:800; }
-.achievementReady { border-color:#d7bd67; background:#fffaf0; }
-.achievementReady > span { background:#f5e8b7; color:#9d721c; }
-.achievementReady > button { background:#224f40; color:#fff9e9; cursor:pointer; }
+.dailyAchievement { border-color:#e1d6ac; background:#fffaf0; }
+.dailyAchievement > span { background:#f5e8b7; color:#9d721c; }
+.automaticReward { min-width:62px; min-height:38px; padding:7px 9px; display:grid; place-items:center; align-content:center; border-radius:100px; background:#e6e8df; color:#778078; font-size:10px; font-weight:850; text-align:center; }
+.automaticReward > span { color:#54734e; font-size:13px; line-height:1; }
+.automaticReward > small { margin-top:3px; color:#667a5d; font-size:8px; }
 .achievementClaimed { border-color:#cfdac7; background:#f0f4ea; }
-.achievementClaimed > button { background:#dce7d5; color:#5d7452; }
+.achievementClaimed > span { background:#dfead8; color:#5d7853; }
+.achievementClaimed .automaticReward { background:#dce7d5; color:#5d7452; }
 .savedSuccesses { margin-top:12px; padding:13px; display:grid; grid-template-columns:1.15fr repeat(3,1fr); gap:8px; border:1px solid #d4dfcc; border-radius:18px; background:linear-gradient(135deg,#eef4e8,#f9f6ea); }
 .savedSuccesses > div { padding:6px; display:grid; grid-template-columns:32px 1fr; align-content:center; column-gap:8px; }
 .savedSuccesses > div > span { grid-row:1/3; width:32px; height:32px; display:grid; place-items:center; border-radius:50%; background:#dbe8d3; color:#638058; }

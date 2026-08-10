@@ -4,6 +4,9 @@ import {
   LIVING_GARDEN_VERSION,
   completedDaysFor,
   habitDaysFor,
+  livingGardenAchievementIds,
+  livingGardenActivityStreak,
+  livingGardenLongestActivityStreak,
   livingDecorations,
   livingGardenPoints,
   mergeLivingGardenSnapshots,
@@ -66,7 +69,7 @@ test("does not count the same completion or purchase twice", () => {
 
   assert.equal(merged.plants[0].completionDates.length, 1);
   assert.equal(merged.purchases.length, 1);
-  assert.equal(livingGardenPoints(merged), 10);
+  assert.equal(livingGardenPoints(merged), 15);
   assert.ok(unlockedLivingSpecies(merged).includes("peony"));
 });
 
@@ -102,7 +105,7 @@ test("keeps a finished plant and its earliest completion date when devices merge
 
   assert.equal(completedDaysFor(merged.plants[0]), 30);
   assert.equal(merged.plants[0].completedAt, "2026-08-30T18:00:00.000Z");
-  assert.equal(livingGardenPoints(merged), 190);
+  assert.equal(livingGardenPoints(merged), 295);
 });
 
 test("keeps an achieved 30-day success while the habit continues to 60 days", () => {
@@ -127,5 +130,28 @@ test("merges continuation dates and awards a newly reached extended goal once", 
 
   assert.equal(habitDaysFor(merged.plants[0]), 60);
   assert.deepEqual(merged.plants[0].rewardedGoals, [30, 60]);
-  assert.equal(livingGardenPoints(merged), 540);
+  assert.equal(livingGardenPoints(merged), 1045);
+});
+
+test("assigns daily achievements automatically and never duplicates their stars", () => {
+  const garden = snapshot([
+    plant({ id: "walk", baseCompletedDays: 0, completionDates: ["2026-08-10"] }),
+    plant({ id: "read", species: "lavender", baseCompletedDays: 0, completionDates: ["2026-08-10"] }),
+    plant({ id: "water", species: "monstera", baseCompletedDays: 0, completionDates: ["2026-08-10"] }),
+  ]);
+  const merged = mergeLivingGardenSnapshots(garden, garden);
+  const achievements = livingGardenAchievementIds(merged);
+
+  assert.ok(achievements.includes("daily:one:2026-08-10"));
+  assert.ok(achievements.includes("daily:three:2026-08-10"));
+  assert.ok(!achievements.includes("daily:five:2026-08-10"));
+  assert.equal(livingGardenPoints(merged), 175);
+});
+
+test("calculates current and longest activity streaks from real completion dates", () => {
+  const garden = snapshot([plant({ baseCompletedDays: 0, completionDates: ["2026-08-08", "2026-08-09", "2026-08-10"] })]);
+
+  assert.equal(livingGardenActivityStreak(garden.plants, "2026-08-10"), 3);
+  assert.equal(livingGardenLongestActivityStreak(garden.plants), 3);
+  assert.ok(livingGardenAchievementIds(garden).includes("streak-three"));
 });

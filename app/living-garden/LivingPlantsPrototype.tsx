@@ -9,9 +9,14 @@ import {
   LIVING_COMPLETION_REWARD,
   completedDaysFor,
   habitDaysFor,
+  livingAchievementReward,
   livingDateKey,
   livingDecorations,
+  livingGardenAchievementIds,
+  livingGardenActivityStreak,
+  livingGardenLongestActivityStreak,
   livingGardenPoints,
+  livingHabitDates,
   mergeLivingGardenSnapshots,
   sanitizeLivingGardenSnapshot,
   unlockedLivingSpecies,
@@ -352,14 +357,33 @@ export default function LivingPlantsPrototype() {
   const selectedFrame = frameFor(selected);
   const todayPlants = plants.filter((plant) => habitDaysFor(plant) < plant.goalDays || plant.completionDates.includes(today) || plant.continuationDates.includes(today));
   const finishedToday = todayPlants.filter((plant) => plant.completionDates.includes(today) || plant.continuationDates.includes(today)).length;
-  const streak = 8 + finishedToday;
+  const streak = livingGardenActivityStreak(plants, today);
+  const longestStreak = livingGardenLongestActivityStreak(plants);
   const maxCompletedDays = Math.max(0, ...plants.map(completedDaysFor));
-  const achievements = [
-    { id: "first-roots", icon: "❧", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", reward: 40, progress: `${Math.min(20, maxCompletedDays)}/20`, ready: maxCompletedDays >= 20 },
-    { id: "streak-ten", icon: "✦", title: "Десять дней рядом", description: "Поддерживай ритм 10 дней подряд", reward: 50, progress: `${Math.min(10, streak)}/10`, ready: streak >= 10 },
-    { id: "three-today", icon: "☘", title: "День заботы", description: "Выполни 3 привычки за один день", reward: 30, progress: `${Math.min(3, finishedToday)}/3`, ready: finishedToday >= 3 },
-    { id: "whole-garden", icon: "♕", title: "Весь сад улыбается", description: "Выполни сегодня все активные привычки", reward: 70, progress: `${finishedToday}/${todayPlants.length}`, ready: todayPlants.length > 0 && finishedToday === todayPlants.length },
-  ];
+  const totalConfirmedActions = plants.reduce((sum, plant) => sum + livingHabitDates(plant).length, 0);
+  const successfulPlantsCount = completedPlants.length;
+  const distinctSpeciesCount = new Set(plants.map((plant) => plant.species)).size;
+  const decoratedPlantsCount = new Set(purchases.filter((purchase) => purchase.kind === "decoration").map((purchase) => purchase.plantId).filter(Boolean)).size;
+  const longestConfirmedGoal = Math.max(0, ...plants.flatMap((plant) => plant.rewardedGoals));
+  const earnedAchievementIds = new Set(livingGardenAchievementIds(snapshot));
+  const dailyAchievements = [
+    { id: `daily:one:${today}`, icon: "☀", title: "Первый шаг дня", description: "Подтверди хотя бы одну привычку сегодня", progress: `${Math.min(1, finishedToday)}/1` },
+    { id: `daily:three:${today}`, icon: "☘", title: "Три ростка за день", description: "Поддержи сегодня три разных растения", progress: `${Math.min(3, finishedToday)}/3` },
+    { id: `daily:five:${today}`, icon: "✦", title: "Сад в полном цвету", description: "Сделай пять отметок за один день", progress: `${Math.min(5, finishedToday)}/5` },
+  ].map((item) => ({ ...item, reward: livingAchievementReward(item.id), earned: earnedAchievementIds.has(item.id) }));
+  const globalAchievements = [
+    { id: "first-roots", icon: "❧", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", progress: `${Math.min(20, maxCompletedDays)}/20` },
+    { id: "streak-three", icon: "≈", title: "Ритм найден", description: "Возвращайся в сад 3 дня подряд", progress: `${Math.min(3, longestStreak)}/3` },
+    { id: "streak-ten", icon: "✦", title: "Десять дней рядом", description: "Поддерживай ритм 10 дней подряд", progress: `${Math.min(10, longestStreak)}/10` },
+    { id: "actions-ten", icon: "10", title: "Первые десять шагов", description: "Сделай 10 подтверждённых отметок", progress: `${Math.min(10, totalConfirmedActions)}/10` },
+    { id: "actions-thirty", icon: "30", title: "Месяц живых действий", description: "Сделай 30 подтверждённых отметок", progress: `${Math.min(30, totalConfirmedActions)}/30` },
+    { id: "actions-hundred", icon: "100", title: "Сотня добрых шагов", description: "Собери 100 настоящих выполнений", progress: `${Math.min(100, totalConfirmedActions)}/100` },
+    { id: "first-success", icon: "♕", title: "Первое взрослое растение", description: "Заверши первый выбранный срок", progress: `${Math.min(1, successfulPlantsCount)}/1` },
+    { id: "three-successes", icon: "♕", title: "Сад достижений", description: "Сохрани три взрослых растения", progress: `${Math.min(3, successfulPlantsCount)}/3` },
+    { id: "four-species", icon: "❉", title: "Ботаническое разнообразие", description: "Посади четыре разных вида", progress: `${Math.min(4, distinctSpeciesCount)}/4` },
+    { id: "long-path", icon: "∞", title: "Глубокие корни", description: "Продолжи одну привычку до 60 отметок", progress: `${Math.min(60, longestConfirmedGoal)}/60` },
+    { id: "garden-decorator", icon: "⌂", title: "Хранитель сада", description: "Укрась три разных растения", progress: `${Math.min(3, decoratedPlantsCount)}/3` },
+  ].map((item) => ({ ...item, reward: livingAchievementReward(item.id), earned: earnedAchievementIds.has(item.id) }));
 
   useEffect(() => {
     let cancelled = false;
@@ -553,15 +577,6 @@ export default function LivingPlantsPrototype() {
     setMessages((current) => ({ ...current, [selected.id]: `${item.name} теперь доступна в твоём саду. Ты открыла её благодаря регулярным шагам.` }));
   }
 
-  function claimAchievement(id: string, reward: number, title: string) {
-    if (claimedAchievements.includes(id)) return;
-    const achievement = achievements.find((item) => item.id === id);
-    if (!achievement?.ready) return;
-    setClaimedAchievements((current) => [...current, id]);
-    setMessages((current) => ({ ...current, [selected.id]: `Достижение «${title}» твоё. Ты умничка — сад дарит тебе ${reward} ✦.` }));
-    showCareEffect(selected.id, "kind");
-  }
-
   function updateSelected(patch: Partial<Pick<PlantHabit, "frequency" | "reminder">>) {
     setPlants((current) => current.map((plant) => plant.id === selected.id ? { ...plant, ...patch, updatedAt: new Date().toISOString() } : plant));
   }
@@ -741,17 +756,24 @@ export default function LivingPlantsPrototype() {
 
       <section className={styles.supportGrid}>
         <article className={styles.achievementsCard}>
-          <div className={styles.cardHeading}><div><span className={styles.eyebrow}>ДОСТИЖЕНИЯ САДА</span><h2>Каждое усилие замечено</h2></div><b>награды ✦</b></div>
-          <div className={styles.achievementGrid}>
-            {achievements.map((item) => {
-              const claimed = claimedAchievements.includes(item.id);
-              return (
-                <article key={item.id} className={`${styles.achievement} ${item.ready ? styles.achievementReady : ""} ${claimed ? styles.achievementClaimed : ""}`}>
-                  <span>{item.icon}</span><div><b>{item.title}</b><p>{item.description}</p><small>{claimed ? "Награда получена" : item.ready ? "Готово — забрать награду" : item.progress}</small></div>
-                  <button onClick={() => claimAchievement(item.id, item.reward, item.title)} disabled={!item.ready || claimed}>{claimed ? "✓" : `+${item.reward} ✦`}</button>
+          <div className={styles.cardHeading}><div><span className={styles.eyebrow}>ДОСТИЖЕНИЯ САДА</span><h2>Каждое усилие замечено</h2></div><b>начисляются сами ✦</b></div>
+          <div className={styles.achievementGroupHeading}><span>СЕГОДНЯ</span><p>Каждый новый день — новая возможность получить эти награды.</p></div>
+          <div className={`${styles.achievementGrid} ${styles.dailyAchievementGrid}`}>
+            {dailyAchievements.map((item) => (
+                <article key={item.id} className={`${styles.achievement} ${styles.dailyAchievement} ${item.earned ? styles.achievementClaimed : ""}`}>
+                  <span>{item.icon}</span><div><b>{item.title}</b><p>{item.description}</p><small>{item.earned ? "Начислено автоматически" : item.progress}</small></div>
+                  <strong className={styles.automaticReward}>{item.earned ? <><span>✓</span><small>+{item.reward} ✦</small></> : `+${item.reward} ✦`}</strong>
                 </article>
-              );
-            })}
+            ))}
+          </div>
+          <div className={styles.achievementGroupHeading}><span>ЗА ВЕСЬ ПУТЬ</span><p>Глобальные достижения остаются с садом навсегда.</p></div>
+          <div className={styles.achievementGrid}>
+            {globalAchievements.map((item) => (
+              <article key={item.id} className={`${styles.achievement} ${item.earned ? styles.achievementClaimed : ""}`}>
+                <span>{item.icon}</span><div><b>{item.title}</b><p>{item.description}</p><small>{item.earned ? "Начислено автоматически" : item.progress}</small></div>
+                <strong className={styles.automaticReward}>{item.earned ? <><span>✓</span><small>+{item.reward} ✦</small></> : `+${item.reward} ✦`}</strong>
+              </article>
+            ))}
           </div>
           {completedPlants.length > 0 && <div className={styles.savedSuccesses}><div><span>♕</span><b>Завершённые циклы</b><small>навсегда сохранены в твоём саду</small></div>{completedPlants.slice(0, 3).map((plant) => <button type="button" key={plant.id} onClick={() => { setSelectedId(plant.id); setActiveView("successes"); }}><strong>{plant.habit}</strong><span>{Math.max(...plant.rewardedGoals)} отметок · {completionDateLabel(plant.completedAt)}</span></button>)}</div>}
         </article>

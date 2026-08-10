@@ -40,7 +40,24 @@ export type LivingGardenSnapshot = {
 
 const speciesCodes = new Set<LivingSpeciesCode>(["sunflower", "tomato", "lavender", "monstera", "oak", "apple", "peony", "sakura"]);
 const frequencyCodes = new Set<LivingFrequency>(["daily", "weekly", "threeWeekly"]);
-const achievementRewards: Record<string, number> = { "first-roots": 40, "streak-ten": 50, "three-today": 30, "whole-garden": 70 };
+const achievementRewards: Record<string, number> = {
+  "first-roots": 40,
+  "streak-three": 25,
+  "streak-ten": 50,
+  "actions-ten": 30,
+  "actions-thirty": 60,
+  "actions-hundred": 120,
+  "first-success": 60,
+  "three-successes": 120,
+  "four-species": 50,
+  "long-path": 90,
+  "garden-decorator": 50,
+  // Previous manually claimed achievements remain valid and keep their original value.
+  "three-today": 30,
+  "whole-garden": 70,
+};
+const dailyAchievementRewards: Record<string, number> = { one: 5, three: 20, five: 35 };
+const legacyClaimedAchievementIds = new Set(["first-roots", "streak-ten", "three-today", "whole-garden"]);
 const purchasePrices: Record<string, number> = {
   "species:peony": 160,
   "species:sakura": 230,
@@ -50,6 +67,7 @@ const purchasePrices: Record<string, number> = {
   "care:fertilizer": 25,
 };
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const dailyAchievementPattern = /^daily:(one|three|five):(\d{4}-\d{2}-\d{2})$/;
 
 function cleanText(value: unknown, limit: number) {
   return String(value ?? "").trim().slice(0, limit);
@@ -63,6 +81,12 @@ function cleanDate(value: unknown) {
 function cleanIso(value: unknown) {
   const candidate = cleanText(value, 30);
   return Number.isFinite(Date.parse(candidate)) ? candidate : new Date(0).toISOString();
+}
+
+export function livingAchievementReward(id: string) {
+  if (id in achievementRewards) return achievementRewards[id];
+  const daily = dailyAchievementPattern.exec(id);
+  return daily && datePattern.test(daily[2]) ? dailyAchievementRewards[daily[1]] ?? 0 : 0;
 }
 
 function cleanPlant(value: unknown): LivingPlantHabit | null {
@@ -125,7 +149,7 @@ export function sanitizeLivingGardenSnapshot(value: unknown): LivingGardenSnapsh
   const plants = Array.isArray(input.plants) ? input.plants.map(cleanPlant).filter((plant): plant is LivingPlantHabit => Boolean(plant)).slice(0, 80) : [];
   if (!plants.length && input.version !== LIVING_GARDEN_VERSION) return null;
   const claimedAchievements = Array.isArray(input.claimedAchievements)
-    ? [...new Set(input.claimedAchievements.map((id) => cleanText(id, 40)).filter((id) => id in achievementRewards))]
+    ? [...new Set(input.claimedAchievements.map((id) => cleanText(id, 40)).filter((id) => legacyClaimedAchievementIds.has(id)))]
     : [];
   const purchases = Array.isArray(input.purchases) ? input.purchases.map(cleanPurchase).filter((purchase): purchase is LivingPurchase => Boolean(purchase)).slice(0, 500) : [];
   return { version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases };
@@ -141,6 +165,69 @@ export function habitDaysFor(plant: LivingPlantHabit) {
 
 export function livingHabitDates(plant: LivingPlantHabit) {
   return [...new Set([...plant.completionDates, ...plant.continuationDates])].sort();
+}
+
+function activityDateKeys(plants: LivingPlantHabit[]) {
+  return [...new Set(plants.flatMap(livingHabitDates))].sort();
+}
+
+function previousDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day - 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+export function livingGardenActivityStreak(plants: LivingPlantHabit[], todayKey: string) {
+  const dates = new Set(activityDateKeys(plants));
+  let cursor = dates.has(todayKey) ? todayKey : previousDateKey(todayKey);
+  let streak = 0;
+  while (dates.has(cursor)) {
+    streak += 1;
+    cursor = previousDateKey(cursor);
+  }
+  return streak;
+}
+
+export function livingGardenLongestActivityStreak(plants: LivingPlantHabit[]) {
+  const dates = activityDateKeys(plants);
+  let longest = 0;
+  let current = 0;
+  let previous: string | null = null;
+  for (const date of dates) {
+    current = previous && previousDateKey(date) === previous ? current + 1 : 1;
+    longest = Math.max(longest, current);
+    previous = date;
+  }
+  return longest;
+}
+
+export function livingGardenAchievementIds(snapshot: LivingGardenSnapshot) {
+  const ids = new Set(snapshot.claimedAchievements.filter((id) => livingAchievementReward(id) > 0));
+  const dateCounts = new Map<string, number>();
+  for (const plant of snapshot.plants) {
+    for (const date of livingHabitDates(plant)) dateCounts.set(date, (dateCounts.get(date) ?? 0) + 1);
+  }
+  for (const [date, count] of dateCounts) {
+    if (count >= 1) ids.add(`daily:one:${date}`);
+    if (count >= 3) ids.add(`daily:three:${date}`);
+    if (count >= 5) ids.add(`daily:five:${date}`);
+  }
+
+  const totalActions = [...dateCounts.values()].reduce((sum, count) => sum + count, 0);
+  const longestStreak = livingGardenLongestActivityStreak(snapshot.plants);
+  const successfulPlants = snapshot.plants.filter((plant) => plant.rewardedGoals.length > 0 || Boolean(plant.completedAt));
+  if (snapshot.plants.some((plant) => completedDaysFor(plant) >= 20)) ids.add("first-roots");
+  if (longestStreak >= 3) ids.add("streak-three");
+  if (longestStreak >= 10) ids.add("streak-ten");
+  if (totalActions >= 10) ids.add("actions-ten");
+  if (totalActions >= 30) ids.add("actions-thirty");
+  if (totalActions >= 100) ids.add("actions-hundred");
+  if (successfulPlants.length >= 1) ids.add("first-success");
+  if (successfulPlants.length >= 3) ids.add("three-successes");
+  if (new Set(snapshot.plants.map((plant) => plant.species)).size >= 4) ids.add("four-species");
+  if (snapshot.plants.some((plant) => plant.rewardedGoals.some((goal) => goal >= 60))) ids.add("long-path");
+  if (new Set(snapshot.purchases.filter((purchase) => purchase.kind === "decoration").map((purchase) => purchase.plantId).filter(Boolean)).size >= 3) ids.add("garden-decorator");
+  return [...ids].sort();
 }
 
 export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: LivingGardenSnapshot): LivingGardenSnapshot {
@@ -179,7 +266,7 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
 export function livingGardenPoints(snapshot: LivingGardenSnapshot) {
   const completionStars = snapshot.plants.reduce((sum, plant) => sum + (plant.completionDates.length + plant.continuationDates.length) * 10, 0);
   const completedPlantStars = snapshot.plants.reduce((sum, plant) => sum + plant.rewardedGoals.length * LIVING_COMPLETION_REWARD, 0);
-  const achievementStars = snapshot.claimedAchievements.reduce((sum, id) => sum + (achievementRewards[id] ?? 0), 0);
+  const achievementStars = livingGardenAchievementIds(snapshot).reduce((sum, id) => sum + livingAchievementReward(id), 0);
   const spentStars = snapshot.purchases.reduce((sum, purchase) => sum + purchase.price, 0);
   return Math.max(0, 120 + completionStars + completedPlantStars + achievementStars - spentStars);
 }
