@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useState, type CSSProperties } from "react";
-import PhysiologicalPlant, { nextPlantChange, plantGrowthLabel, type SpeciesCode } from "./PhysiologicalPlant";
 import styles from "./living-garden.module.css";
 
+type SpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera";
 type CareEffect = "grow" | "fertilizer" | "kind";
 
 type Species = {
@@ -36,14 +37,14 @@ const initialPlants: PlantHabit[] = [
 ];
 
 const defaultMessages: Record<SpeciesCode, string> = {
-  sunflower: "Я меняюсь от каждого твоего шага: тяну стебель, разворачиваю листья и готовлю бутон.",
-  tomato: "Каждая отметка становится новым листом, цветком или маленьким плодом.",
-  lavender: "Я расту колосок за колоском. Каждый шаг раскрывает во мне новые бутоны.",
-  monstera: "Каждое действие поднимает новый лист и помогает ему медленно развернуться.",
+  sunflower: "Каждый твой шаг открывает во мне ещё один маленький кусочек роста.",
+  tomato: "Я остаюсь тем же растением и понемногу проявляюсь с каждым действием.",
+  lavender: "Можно расти тихо: шаг за шагом, без скачков и резких превращений.",
+  monstera: "Посмотри: после каждой отметки меня становится чуть больше.",
 };
 
 const careMessages = {
-  grow: "Вижу твой шаг! Посмотри: растение прямо сейчас изменилось вместе с тобой.",
+  grow: "Вижу твой шаг! Посмотри: рисунок растения прямо сейчас плавно продолжился выше.",
   fertilizer: "Как приятно! Цветок ожил — настоящий рост всё равно принесёт твой следующий шаг.",
   kind: "Я тебя услышало. Будем расти не спеша — столько, сколько нужно.",
 };
@@ -60,20 +61,42 @@ function progressFor(plant: PlantHabit) {
   return Math.round((plant.completedDays / plant.durationDays) * 100);
 }
 
+function plantGrowthLabel(progress: number) {
+  if (progress <= 0.01) return "Семечко ждёт первого шага";
+  if (progress < 0.16) return "Показывается первый росток";
+  if (progress < 0.48) return "Постепенно появляются стебель и листья";
+  if (progress < 0.76) return "Растение становится всё полнее";
+  return "Постепенно проявляются цветы и верхние листья";
+}
+
+function nextPlantChange(progress: number) {
+  if (progress < 0.08) return "из земли плавно покажется росток";
+  if (progress < 0.7) return "рисунок растения плавно продолжится выше";
+  return "плавно проявится ещё одна часть взрослого растения";
+}
+
 function PlantArt({ plant, effect, className = "" }: { plant: PlantHabit; effect?: CareEffect; className?: string }) {
   const plantSpecies = getSpecies(plant.species);
   const progress = growthProgress(plant);
   const previousProgress = Math.max(0, progress - 1 / plant.durationDays);
+  const reveal = 7 + progress * 93;
+  const previousReveal = 7 + previousProgress * 93;
   return (
     <div
       className={`${styles.plantArt} ${effect ? styles[effect] : ""} ${className}`}
-      style={{ "--accent": plantSpecies.accent } as CSSProperties}
+      style={{
+        "--accent": plantSpecies.accent,
+        "--plant-reveal": `${reveal}%`,
+        "--plant-previous-reveal": `${previousReveal}%`,
+      } as CSSProperties}
+      role="img"
+      aria-label={`${plantSpecies.name}. Видно ${Math.round(progress * 100)} процентов растения.`}
     >
-      <span className={styles.seedGlow} aria-hidden="true" />
-      <PhysiologicalPlant species={plant.species} progress={progress} previousProgress={previousProgress} growing={effect === "grow"} />
+      <span className={styles.plantImageReveal} aria-hidden="true">
+        <Image className={styles.plantImage} src={`/plants/${plant.species}.webp`} alt="" width={1024} height={1536} unoptimized />
+      </span>
       {effect === "fertilizer" && <span className={styles.fertilizerDust} aria-hidden="true">✦ ✧ ✦</span>}
       {effect === "kind" && <span className={styles.kindHearts} aria-hidden="true">♡  ♡  ♡</span>}
-      {effect === "grow" && <span className={styles.growthLeaves} aria-hidden="true">✦</span>}
     </div>
   );
 }
@@ -92,8 +115,8 @@ export default function LivingPlantsPrototype() {
   const selected = plants.find((plant) => plant.id === selectedId) ?? plants[0];
   const selectedSpecies = getSpecies(selected.species);
   const selectedProgress = progressFor(selected);
-  const selectedGrowth = plantGrowthLabel(selected.species, growthProgress(selected));
-  const selectedNextChange = nextPlantChange(selected.species, growthProgress(selected));
+  const selectedGrowth = plantGrowthLabel(growthProgress(selected));
+  const selectedNextChange = nextPlantChange(growthProgress(selected));
   const totalDays = plants.reduce((sum, plant) => sum + plant.completedDays, 0);
   const averageProgress = Math.round(plants.reduce((sum, plant) => sum + progressFor(plant), 0) / plants.length);
   const finishedToday = plants.filter((plant) => todayChecks[plant.id]).length;
@@ -163,7 +186,7 @@ export default function LivingPlantsPrototype() {
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>ПЯТНИЦА · ДЕНЬ, КОТОРЫЙ МОЖНО ВЫРАСТИТЬ</p>
           <h1>Твоя привычка<br />становится <em>живой</em></h1>
-          <p className={styles.lead}>Подтверди действие рядом с растением и сразу увидишь, что именно изменилось: вытянулся стебель, развернулся лист или раскрылся новый лепесток.</p>
+          <p className={styles.lead}>Подтверди действие рядом с растением и смотри, как та же самая иллюстрация мягко и постепенно проявляется снизу вверх.</p>
           <div className={styles.heroStats}>
             <div><strong>{plants.length}</strong><span>живых растения</span></div>
             <div><strong>{totalDays}</strong><span>дней заботы</span></div>
@@ -232,7 +255,7 @@ export default function LivingPlantsPrototype() {
           {plants.map((plant) => {
             const itemSpecies = getSpecies(plant.species);
             const active = plant.id === selected.id;
-            return <button key={plant.id} className={`${styles.plantCard} ${active ? styles.activeCard : ""}`} onClick={() => setSelectedId(plant.id)} style={{ "--accent": itemSpecies.accent } as CSSProperties}><div className={styles.cardTop}><span>{itemSpecies.name}</span><b>{todayChecks[plant.id] ? "✓ сегодня" : `${progressFor(plant)}%`}</b></div><PlantArt plant={plant} effect={effect?.plantId === plant.id ? effect.kind : undefined} /><div className={styles.cardCopy}><small>{plantGrowthLabel(plant.species, growthProgress(plant))}</small><strong>{plant.habit}</strong><span>{plant.completedDays} из {plant.durationDays} действий</span></div><div className={styles.cardProgress}><i style={{ width: `${progressFor(plant)}%` }} /></div><div className={styles.cardAction}>{active ? "Выбрано · отметить наверху рядом с растением" : "Нажать · выбрать растение"}</div></button>;
+            return <button key={plant.id} className={`${styles.plantCard} ${active ? styles.activeCard : ""}`} onClick={() => setSelectedId(plant.id)} style={{ "--accent": itemSpecies.accent } as CSSProperties}><div className={styles.cardTop}><span>{itemSpecies.name}</span><b>{todayChecks[plant.id] ? "✓ сегодня" : `${progressFor(plant)}%`}</b></div><PlantArt plant={plant} effect={effect?.plantId === plant.id ? effect.kind : undefined} /><div className={styles.cardCopy}><small>{plantGrowthLabel(growthProgress(plant))}</small><strong>{plant.habit}</strong><span>{plant.completedDays} из {plant.durationDays} действий</span></div><div className={styles.cardProgress}><i style={{ width: `${progressFor(plant)}%` }} /></div><div className={styles.cardAction}>{active ? "Выбрано · отметить наверху рядом с растением" : "Нажать · выбрать растение"}</div></button>;
           })}
           <button className={styles.emptyCard} onClick={() => setShowPlanting(true)}><span>＋</span><strong>Свободное место</strong><small>Выбрать семечко и новую привычку</small></button>
         </div>
