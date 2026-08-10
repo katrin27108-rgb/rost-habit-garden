@@ -110,6 +110,12 @@
 .dayDots i { aspect-ratio: 1; display: grid; place-items: center; border: 1px solid #d8dcd3; border-radius: 50%; background: #fffdf8; color: #7d8982; font-size: 9px; font-style: normal; }
 .dayDots i.filledDay { border-color: var(--accent); background: var(--accent); color: white; }
 .dayDots i.nextDay { border-color: color-mix(in srgb,var(--accent) 65%,white); box-shadow: 0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent); }
+.continuationProgress { margin-top:12px; padding-top:11px; display:grid; grid-template-columns:150px 1fr; align-items:center; gap:13px; border-top:1px solid rgba(48,80,65,.1); }
+.continuationProgress span b,.continuationProgress span small { display:block; }
+.continuationProgress span b { font:500 11px Georgia,serif; }
+.continuationProgress span small { margin-top:3px; color:#718078; font-size:9px; }
+.continuationProgress > i { height:7px; overflow:hidden; border-radius:100px; background:#e3e7dd; }
+.continuationProgress > i b { height:100%; display:block; border-radius:inherit; background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 58%,#e7d58e)); transition:width .35s ease; }
 .scheduleSettings { margin-top: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .scheduleSettings label { padding: 9px 11px; border: 1px solid #dde0d6; border-radius: 14px; background: #fffdf8; }
 .scheduleSettings label > span { display: block; margin-bottom: 5px; color: #74827a; font-size: 10px; }
@@ -120,6 +126,9 @@
 .completedPlantNotice b { font:500 13px Georgia,serif; }
 .completedPlantNotice small { margin-top:4px; color:#6f7f77; font-size:9px; }
 .completedPlantNotice button { padding:9px 12px; border:0; border-radius:100px; background:var(--ink); color:#fffaf0; font-size:9px; font-weight:800; cursor:pointer; }
+.completedNoticeActions { display:flex; gap:6px; }
+.completedNoticeActions button:last-child { border:1px solid #d6ddd2; background:#fffdf8; color:#5e7167; }
+.completedNoticeActions button:only-child { min-width:110px; }
 
 .careDock { margin-top: 8px; padding: 12px; border: 1px solid color-mix(in srgb,var(--accent) 24%,#dfe2d8); border-radius: 19px; background: color-mix(in srgb,var(--accent) 5%,#fffdf8); }
 .careDockHeading { margin-bottom: 9px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
@@ -355,6 +364,11 @@
 .completionKicker { color:#a3781c; font-size:10px; font-weight:900; letter-spacing:.16em; }
 .completionModal h2 { margin:10px auto 11px; color:#1d493a; font:500 clamp(34px,5vw,50px)/.98 Georgia,serif; letter-spacing:-.04em; }
 .completionModal > p { max-width:550px; margin:0 auto; color:#526b5f; font:400 14px/1.6 Georgia,serif; }
+.habitScienceNote { max-width:550px; margin:18px auto 0; padding:14px 16px; border:1px solid #cedbc7; border-radius:17px; background:rgba(242,247,236,.86); text-align:left; }
+.habitScienceNote > span { color:#63805a; font-size:8px; font-weight:900; letter-spacing:.13em; }
+.habitScienceNote p { margin:7px 0 6px; color:#4f685c; font:400 11px/1.55 Georgia,serif; }
+.habitScienceNote p b { font-weight:600; }
+.habitScienceNote a { color:#547455; font-size:9px; font-weight:800; }
 .completionReward { margin:20px auto 16px; padding:13px 16px; max-width:520px; display:grid; grid-template-columns:43px 1fr auto; align-items:center; gap:12px; border:1px solid rgba(180,143,45,.28); border-radius:17px; background:rgba(255,253,247,.8); text-align:left; }
 .completionReward > span { width:43px; height:43px; display:grid; place-items:center; border-radius:50%; background:#f2e4b5; color:#9f7620; font-size:20px; }
 .completionReward small,.completionReward b { display:block; }
@@ -364,6 +378,7 @@
 .completionActions { max-width:520px; margin:0 auto; display:grid; grid-template-columns:1.2fr 1fr; gap:8px; }
 .completionActions button { min-height:48px; padding:9px 13px; border:1px solid #cfd9c8; border-radius:14px; background:#fffdf8; color:#52695d; font-size:10px; font-weight:850; cursor:pointer; }
 .completionActions button:first-child { border-color:#244f40; background:#244f40; color:#fffaf0; }
+.completionActions button:only-child { grid-column:1/-1; }
 .completionSaved { margin-top:13px; display:block; color:#74847b; font-size:9px; }
 .confetti { position:absolute; z-index:9; inset:0; overflow:hidden; pointer-events:none; }
 .confetti i { position:absolute; left:var(--confetti-x); top:-18px; width:8px; height:15px; border-radius:2px; background:#d5a92f; animation:confetti-fall 1.8s var(--confetti-delay) cubic-bezier(.18,.7,.35,1) both; }
@@ -386,6 +401,8 @@
 .speciesGrid small { margin-top: 3px; color: #66776e; font-size: 10px; }
 .choiceGrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; }
 .choiceGrid button { min-height: 45px; padding: 8px; border: 1px solid #dfe1d7; border-radius: 13px; background: white; font-size: 11px; cursor: pointer; }
+.choiceGrid button b,.choiceGrid button small { display:block; }
+.choiceGrid button small { margin-top:3px; color:#74837b; font-size:8px; }
 .modal button.selectedChoice { border-color: #78956b; background: #eef3e7; box-shadow: 0 0 0 3px rgba(120,149,107,.08); }
 .plantButtonModal { width: 100%; height: 52px; margin-top: 21px; padding: 0 17px; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 15px; background: var(--ink); color: white !important; font-size: 12px; font-weight: 850; cursor: pointer; }
 
@@ -474,7 +491,8 @@
   .successGardenGrid { grid-template-columns:1fr; }
   .successPlantCard > .plantArt { height:280px; }
   .completedPlantNotice { grid-template-columns:36px 1fr; }
-  .completedPlantNotice button { grid-column:1/-1; }
+  .completedNoticeActions { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; }
+  .continuationProgress { grid-template-columns:1fr; gap:8px; }
   .statisticsSection { padding-top:27px; }
   .statisticsHero h1 { font-size:38px; }
   .statisticsHero p { font-size:14px; }
@@ -507,6 +525,7 @@
   .completionPlant { height:210px; }
   .completionModal h2 { padding:0 12px; font-size:36px; }
   .completionModal > p { font-size:13px; }
+  .habitScienceNote { padding:12px; }
   .completionReward { grid-template-columns:38px 1fr auto; padding:11px; }
   .completionActions { grid-template-columns:1fr; }
 }

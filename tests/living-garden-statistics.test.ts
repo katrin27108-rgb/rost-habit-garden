@@ -4,7 +4,7 @@ import { buildMonthlyGardenStatistic, livingMonthLabel, moveLivingMonth } from "
 import type { LivingPlantHabit } from "../lib/living-garden-sync.ts";
 
 function plant(id: string, frequency: LivingPlantHabit["frequency"], completionDates: string[], baseCompletedDays = 0, createdAt = "2026-08-01T10:00:00.000Z"): LivingPlantHabit {
-  return { id, habit: id, species: "sunflower", baseCompletedDays, completionDates, frequency, reminder: null, createdAt, completedAt: baseCompletedDays + completionDates.length >= 30 ? "2026-08-10T10:00:00.000Z" : null, updatedAt: "2026-08-10T10:00:00.000Z" };
+  return { id, habit: id, species: "sunflower", baseCompletedDays, completionDates, continuationDates: [], goalDays: 30, rewardedGoals: [], frequency, reminder: null, createdAt, completedAt: baseCompletedDays + completionDates.length >= 30 ? "2026-08-10T10:00:00.000Z" : null, updatedAt: "2026-08-10T10:00:00.000Z" };
 }
 
 test("builds a current-month summary without treating future days as missed", () => {
@@ -46,4 +46,13 @@ test("does not invent missed days before a habit started", () => {
 
   assert.equal(result.plants[0].target, 1);
   assert.equal(result.plants[0].missed, 0);
+});
+
+test("includes post-growth repetitions in an extended habit goal", () => {
+  const extended = { ...plant("extended", "daily", [], 30), goalDays: 60, continuationDates: ["2026-08-01", "2026-08-02", "2026-08-03"], rewardedGoals: [30], completedAt: "2026-07-31T18:00:00.000Z" };
+  const result = buildMonthlyGardenStatistic([extended], "2026-08", "2026-08-10");
+
+  assert.equal(result.plants[0].completed, 3);
+  assert.equal(result.plants[0].target, 10);
+  assert.equal(result.plants[0].missed, 7);
 });

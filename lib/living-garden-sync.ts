@@ -12,6 +12,9 @@ export type LivingPlantHabit = {
   species: LivingSpeciesCode;
   baseCompletedDays: number;
   completionDates: string[];
+  continuationDates: string[];
+  goalDays: number;
+  rewardedGoals: number[];
   frequency: LivingFrequency;
   reminder: string | null;
   createdAt: string;
@@ -75,6 +78,11 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
   const completionDates = Array.isArray(input.completionDates)
     ? [...new Set(input.completionDates.map(cleanDate).filter((date): date is string => Boolean(date)))].sort().slice(0, Math.max(0, 30 - baseCompletedDays))
     : [];
+  const goalDays = Math.min(360, Math.max(30, Math.floor(Number(input.goalDays) || 30)));
+  const completionDateSet = new Set(completionDates);
+  const continuationDates = Array.isArray(input.continuationDates)
+    ? [...new Set(input.continuationDates.map(cleanDate).filter((date): date is string => Boolean(date) && !completionDateSet.has(date)))].sort().slice(0, Math.max(0, goalDays - 30))
+    : [];
   const reminder = input.reminder === null ? null : cleanText(input.reminder, 5) || null;
   const updatedAt = cleanIso(input.updatedAt);
   const createdAt = input.createdAt
@@ -82,15 +90,20 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
     : completionDates[0]
       ? `${completionDates[0]}T00:00:00.000Z`
       : updatedAt;
-  const isCompleted = baseCompletedDays + completionDates.length >= 30;
-  const completedAt = isCompleted
-    ? input.completedAt
-      ? cleanIso(input.completedAt)
-      : completionDates.at(-1)
-        ? `${completionDates.at(-1)}T00:00:00.000Z`
+  const habitDays = Math.min(goalDays, baseCompletedDays + completionDates.length + continuationDates.length);
+  const isCompleted = habitDays >= goalDays;
+  const completedAt = input.completedAt
+    ? cleanIso(input.completedAt)
+    : isCompleted
+      ? [...completionDates, ...continuationDates].sort().at(-1)
+        ? `${[...completionDates, ...continuationDates].sort().at(-1)}T00:00:00.000Z`
         : updatedAt
-    : null;
-  return { id, habit, species, baseCompletedDays, completionDates, frequency, reminder, createdAt, completedAt, updatedAt };
+      : null;
+  const sanitizedRewardedGoals = Array.isArray(input.rewardedGoals)
+    ? [...new Set(input.rewardedGoals.map(Number).filter((goal) => Number.isInteger(goal) && goal >= 30 && goal <= habitDays))].sort((a, b) => a - b).slice(0, 12)
+    : [];
+  const rewardedGoals = isCompleted ? [...new Set([...sanitizedRewardedGoals, goalDays])].sort((a, b) => a - b) : sanitizedRewardedGoals;
+  return { id, habit, species, baseCompletedDays, completionDates, continuationDates, goalDays, rewardedGoals, frequency, reminder, createdAt, completedAt, updatedAt };
 }
 
 function cleanPurchase(value: unknown): LivingPurchase | null {
@@ -122,6 +135,14 @@ export function completedDaysFor(plant: LivingPlantHabit) {
   return Math.min(30, plant.baseCompletedDays + plant.completionDates.length);
 }
 
+export function habitDaysFor(plant: LivingPlantHabit) {
+  return Math.min(plant.goalDays, plant.baseCompletedDays + plant.completionDates.length + plant.continuationDates.length);
+}
+
+export function livingHabitDates(plant: LivingPlantHabit) {
+  return [...new Set([...plant.completionDates, ...plant.continuationDates])].sort();
+}
+
 export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: LivingGardenSnapshot): LivingGardenSnapshot {
   const plants = new Map<string, LivingPlantHabit>();
   for (const plant of [...left.plants, ...right.plants]) {
@@ -132,13 +153,17 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
     }
     const latest = existing.updatedAt.localeCompare(plant.updatedAt) <= 0 ? plant : existing;
     const baseCompletedDays = Math.max(existing.baseCompletedDays, plant.baseCompletedDays);
+    const goalDays = Math.max(existing.goalDays, plant.goalDays);
     const completionDates = [...new Set([...existing.completionDates, ...plant.completionDates])].sort().slice(0, Math.max(0, 30 - baseCompletedDays));
+    const completionDateSet = new Set(completionDates);
+    const continuationDates = [...new Set([...existing.continuationDates, ...plant.continuationDates])].filter((date) => !completionDateSet.has(date)).sort().slice(0, Math.max(0, goalDays - 30));
     const createdAt = existing.createdAt.localeCompare(plant.createdAt) <= 0 ? existing.createdAt : plant.createdAt;
     const completedAtCandidates = [existing.completedAt, plant.completedAt].filter((value): value is string => Boolean(value)).sort();
-    const completedAt = baseCompletedDays + completionDates.length >= 30
-      ? completedAtCandidates[0] ?? (completionDates.at(-1) ? `${completionDates.at(-1)}T00:00:00.000Z` : latest.updatedAt)
-      : null;
-    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, createdAt, completedAt });
+    const habitDays = Math.min(goalDays, baseCompletedDays + completionDates.length + continuationDates.length);
+    const completedAt = completedAtCandidates[0] ?? (habitDays >= goalDays ? ([...completionDates, ...continuationDates].sort().at(-1) ? `${[...completionDates, ...continuationDates].sort().at(-1)}T00:00:00.000Z` : latest.updatedAt) : null);
+    const mergedRewardedGoals = [...new Set([...existing.rewardedGoals, ...plant.rewardedGoals])].filter((goal) => goal <= habitDays);
+    const rewardedGoals = habitDays >= goalDays ? [...new Set([...mergedRewardedGoals, goalDays])].sort((a, b) => a - b) : mergedRewardedGoals.sort((a, b) => a - b);
+    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, continuationDates, goalDays, rewardedGoals, createdAt, completedAt });
   }
 
   const purchases = new Map<string, LivingPurchase>();
@@ -152,8 +177,8 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
 }
 
 export function livingGardenPoints(snapshot: LivingGardenSnapshot) {
-  const completionStars = snapshot.plants.reduce((sum, plant) => sum + plant.completionDates.length * 10, 0);
-  const completedPlantStars = snapshot.plants.filter((plant) => completedDaysFor(plant) >= 30).length * LIVING_COMPLETION_REWARD;
+  const completionStars = snapshot.plants.reduce((sum, plant) => sum + (plant.completionDates.length + plant.continuationDates.length) * 10, 0);
+  const completedPlantStars = snapshot.plants.reduce((sum, plant) => sum + plant.rewardedGoals.length * LIVING_COMPLETION_REWARD, 0);
   const achievementStars = snapshot.claimedAchievements.reduce((sum, id) => sum + (achievementRewards[id] ?? 0), 0);
   const spentStars = snapshot.purchases.reduce((sum, purchase) => sum + purchase.price, 0);
   return Math.max(0, 120 + completionStars + completedPlantStars + achievementStars - spentStars);

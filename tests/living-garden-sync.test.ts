@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   LIVING_GARDEN_VERSION,
   completedDaysFor,
+  habitDaysFor,
   livingDecorations,
   livingGardenPoints,
   mergeLivingGardenSnapshots,
@@ -19,6 +20,9 @@ function plant(overrides: Partial<LivingPlantHabit> = {}): LivingPlantHabit {
     species: "sunflower",
     baseCompletedDays: 11,
     completionDates: [],
+    continuationDates: [],
+    goalDays: 30,
+    rewardedGoals: [],
     frequency: "daily",
     reminder: "18:30",
     createdAt: "2026-08-10T10:00:00.000Z",
@@ -99,4 +103,29 @@ test("keeps a finished plant and its earliest completion date when devices merge
   assert.equal(completedDaysFor(merged.plants[0]), 30);
   assert.equal(merged.plants[0].completedAt, "2026-08-30T18:00:00.000Z");
   assert.equal(livingGardenPoints(merged), 190);
+});
+
+test("keeps an achieved 30-day success while the habit continues to 60 days", () => {
+  const restored = sanitizeLivingGardenSnapshot({
+    version: 1,
+    plants: [plant({ baseCompletedDays: 30, goalDays: 60, continuationDates: ["2026-09-01", "2026-09-02"], rewardedGoals: [30], completedAt: "2026-08-30T18:00:00.000Z" })],
+    claimedAchievements: [],
+    purchases: [],
+  });
+
+  assert.ok(restored);
+  assert.equal(habitDaysFor(restored.plants[0]), 32);
+  assert.equal(restored.plants[0].goalDays, 60);
+  assert.equal(restored.plants[0].completedAt, "2026-08-30T18:00:00.000Z");
+  assert.deepEqual(restored.plants[0].rewardedGoals, [30]);
+});
+
+test("merges continuation dates and awards a newly reached extended goal once", () => {
+  const computer = snapshot([plant({ baseCompletedDays: 30, goalDays: 60, continuationDates: Array.from({ length: 15 }, (_, index) => `2026-09-${String(index + 1).padStart(2, "0")}`,), rewardedGoals: [30], completedAt: "2026-08-30T18:00:00.000Z" })]);
+  const phone = snapshot([plant({ baseCompletedDays: 30, goalDays: 60, continuationDates: Array.from({ length: 15 }, (_, index) => `2026-09-${String(index + 16).padStart(2, "0")}`,), rewardedGoals: [30], completedAt: "2026-08-30T18:00:00.000Z", updatedAt: "2026-09-30T18:00:00.000Z" })]);
+  const merged = mergeLivingGardenSnapshots(computer, phone);
+
+  assert.equal(habitDaysFor(merged.plants[0]), 60);
+  assert.deepEqual(merged.plants[0].rewardedGoals, [30, 60]);
+  assert.equal(livingGardenPoints(merged), 540);
 });

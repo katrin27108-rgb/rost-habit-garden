@@ -1,4 +1,4 @@
-import type { LivingFrequency, LivingPlantHabit } from "./living-garden-sync";
+import { livingHabitDates, type LivingFrequency, type LivingPlantHabit } from "./living-garden-sync.ts";
 
 export type MonthlyPlantStatistic = {
   plantId: string;
@@ -62,10 +62,11 @@ export function buildMonthlyGardenStatistic(plants: LivingPlantHabit[], monthKey
   const dayCounts = new Map<string, number>();
 
   const plantStatistics = plants.map((plant): MonthlyPlantStatistic => {
-    const dates = plant.completionDates.filter((date) => date.startsWith(`${monthKey}-`)).sort();
+    const habitDates = livingHabitDates(plant);
+    const dates = habitDates.filter((date) => date.startsWith(`${monthKey}-`)).sort();
     for (const date of dates) dayCounts.set(date, (dayCounts.get(date) ?? 0) + 1);
-    const completedBeforeMonth = plant.completionDates.filter((date) => date < monthStart).length;
-    const remainingAtStart = Math.max(0, 30 - plant.baseCompletedDays - completedBeforeMonth);
+    const completedBeforeMonth = habitDates.filter((date) => date < monthStart).length;
+    const remainingAtStart = Math.max(0, plant.goalDays - plant.baseCompletedDays - completedBeforeMonth);
     const trackingStarted = plant.createdAt.slice(0, 10);
     const eligibleDays = trackingStarted > `${monthKey}-${String(elapsedDays).padStart(2, "0")}`
       ? 0
