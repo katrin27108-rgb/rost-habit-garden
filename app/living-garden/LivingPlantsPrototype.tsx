@@ -19,6 +19,7 @@ import {
   livingHabitDates,
   mergeLivingGardenSnapshots,
   sanitizeLivingGardenSnapshot,
+  setLivingHabitDate,
   unlockedLivingSpecies,
   type LivingDecorationCode,
   type LivingFrequency,
@@ -92,7 +93,8 @@ const initialPlants: PlantHabit[] = [
   { id: "vegetables", habit: "Добавлять овощи в обед", species: "tomato", baseCompletedDays: 19, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "threeWeekly", reminder: null, createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT },
 ];
 
-const initialSnapshot: LivingGardenSnapshot = { version: LIVING_GARDEN_VERSION, plants: initialPlants, claimedAchievements: [], purchases: [] };
+const emptyPlant: PlantHabit = { id: "empty", habit: "Посади первую привычку", species: "sunflower", baseCompletedDays: 0, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "daily", reminder: null, createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT };
+const initialSnapshot: LivingGardenSnapshot = { version: LIVING_GARDEN_VERSION, plants: initialPlants, claimedAchievements: [], purchases: [], deletedPlantIds: [] };
 
 const frequencyLabels: Record<Frequency, string> = {
   daily: "Каждый день",
@@ -321,7 +323,9 @@ export default function LivingPlantsPrototype() {
   const [showDecorationPicker, setShowDecorationPicker] = useState(false);
   const [claimedAchievements, setClaimedAchievements] = useState<string[]>([]);
   const [purchases, setPurchases] = useState<LivingPurchase[]>([]);
+  const [deletedPlantIds, setDeletedPlantIds] = useState<string[]>([]);
   const [showPlanting, setShowPlanting] = useState(false);
+  const [plantToDelete, setPlantToDelete] = useState<PlantHabit | null>(null);
   const [completionCelebration, setCompletionCelebration] = useState<PlantHabit | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"checking" | "signed-out" | "connected" | "offline">("checking");
@@ -339,7 +343,7 @@ export default function LivingPlantsPrototype() {
   const [statisticsMonth, setStatisticsMonth] = useState(() => livingMonthKey());
   const carouselTouchStart = useRef<number | null>(null);
 
-  const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases }), [claimedAchievements, plants, purchases]);
+  const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases, deletedPlantIds }), [claimedAchievements, deletedPlantIds, plants, purchases]);
   const points = livingGardenPoints(snapshot);
   const unlockedSpecies = unlockedLivingSpecies(snapshot);
   const decorationsByPlant = livingDecorations(snapshot);
@@ -347,21 +351,21 @@ export default function LivingPlantsPrototype() {
   const currentMonth = livingMonthKey();
   const monthlyStatistics = useMemo(() => buildMonthlyGardenStatistic(plants, statisticsMonth, today), [plants, statisticsMonth, today]);
   const maximumWeeklyActions = Math.max(1, ...monthlyStatistics.weeks.map((week) => week.completed));
-  const activePlants = plants.filter((plant) => habitDaysFor(plant) < plant.goalDays);
+  const activePlants = plants.filter((plant) => habitDaysFor(plant) < plant.goalDays || livingHabitDates(plant).includes(today));
   const completedPlants = plants
     .filter((plant) => Boolean(plant.completedAt))
     .sort((left, right) => (right.completedAt ?? right.updatedAt).localeCompare(left.completedAt ?? left.updatedAt));
   const savedSuccessActions = completedPlants.reduce((sum, plant) => sum + Math.max(0, ...plant.rewardedGoals), 0);
   const savedSuccessRewards = completedPlants.reduce((sum, plant) => sum + plant.rewardedGoals.length * LIVING_COMPLETION_REWARD, 0);
-  const selected = plants.find((plant) => plant.id === selectedId) ?? plants[0];
+  const selected = plants.find((plant) => plant.id === selectedId) ?? plants[0] ?? emptyPlant;
   const carouselPlants = activePlants.some((plant) => plant.id === selected.id) ? activePlants : plants;
   const selectedCarouselIndex = Math.max(0, carouselPlants.findIndex((plant) => plant.id === selected.id));
   const previousCarouselPlant = carouselPlants.length > 1 ? carouselPlants[(selectedCarouselIndex - 1 + carouselPlants.length) % carouselPlants.length] : null;
   const nextCarouselPlant = carouselPlants.length > 1 ? carouselPlants[(selectedCarouselIndex + 1) % carouselPlants.length] : null;
   const selectedSpecies = getSpecies(selected.species);
   const selectedFrame = frameFor(selected);
-  const todayPlants = plants.filter((plant) => habitDaysFor(plant) < plant.goalDays || plant.completionDates.includes(today) || plant.continuationDates.includes(today));
-  const finishedToday = todayPlants.filter((plant) => plant.completionDates.includes(today) || plant.continuationDates.includes(today)).length;
+  const todayPlants = plants.filter((plant) => habitDaysFor(plant) < plant.goalDays || livingHabitDates(plant).includes(today));
+  const finishedToday = todayPlants.filter((plant) => livingHabitDates(plant).includes(today)).length;
   const streak = livingGardenActivityStreak(plants, today);
   const longestStreak = livingGardenLongestActivityStreak(plants);
   const maxCompletedDays = Math.max(0, ...plants.map(completedDaysFor));
@@ -406,6 +410,7 @@ export default function LivingPlantsPrototype() {
       setPlants(localSnapshot.plants);
       setClaimedAchievements(localSnapshot.claimedAchievements);
       setPurchases(localSnapshot.purchases);
+      setDeletedPlantIds(localSnapshot.deletedPlantIds ?? []);
       setHydrated(true);
 
       try {
@@ -422,6 +427,7 @@ export default function LivingPlantsPrototype() {
         setPlants(merged.plants);
         setClaimedAchievements(merged.claimedAchievements);
         setPurchases(merged.purchases);
+        setDeletedPlantIds(merged.deletedPlantIds ?? []);
         setAccountName(data.user?.displayName ?? "Садовник");
         setSyncedAt(data.syncedAt ?? null);
         setSyncStatus("connected");
@@ -464,6 +470,7 @@ export default function LivingPlantsPrototype() {
           setPlants(merged.plants);
           setClaimedAchievements(merged.claimedAchievements);
           setPurchases(merged.purchases);
+          setDeletedPlantIds(merged.deletedPlantIds ?? []);
         }
         setSyncedAt(data.syncedAt ?? new Date().toISOString());
       }).catch(() => setSyncStatus("offline")).finally(() => setIsSaving(false));
@@ -476,54 +483,46 @@ export default function LivingPlantsPrototype() {
     window.setTimeout(() => setEffect((current) => current?.plantId === plantId && current.kind === kind ? null : current), 1800);
   }
 
-  function completePlant(plantId: string) {
+  function togglePlantCompletion(plantId: string) {
     const plant = plants.find((item) => item.id === plantId);
     if (!plant) return;
     setSelectedId(plantId);
-    if (plant.completionDates.includes(today) || plant.continuationDates.includes(today) || habitDaysFor(plant) >= plant.goalDays) return;
+    const checked = livingHabitDates(plant).includes(today);
+    if (!checked && habitDaysFor(plant) >= plant.goalDays) return;
 
-    const isGrowing = completedDaysFor(plant) < TOTAL_STAGES;
-    const saveCompletion = () => {
-      const updatedAt = new Date().toISOString();
-      const nextCompletionDates = isGrowing ? [...new Set([...plant.completionDates, today])].sort() : plant.completionDates;
-      const nextContinuationDates = isGrowing ? plant.continuationDates : [...new Set([...plant.continuationDates, today])].sort();
-      const nextHabitDays = Math.min(plant.goalDays, plant.baseCompletedDays + nextCompletionDates.length + nextContinuationDates.length);
-      const reachedGoal = nextHabitDays >= plant.goalDays;
-      const reachedMaturity = completedDaysFor(plant) < TOTAL_STAGES && plant.baseCompletedDays + nextCompletionDates.length >= TOTAL_STAGES;
-      const completedPlant = {
-        ...plant,
-        completionDates: nextCompletionDates,
-        continuationDates: nextContinuationDates,
-        rewardedGoals: reachedGoal ? [...new Set([...plant.rewardedGoals, plant.goalDays])].sort((a, b) => a - b) : plant.rewardedGoals,
-        completedAt: plant.completedAt ?? (reachedGoal ? updatedAt : null),
-        updatedAt,
-      };
-      setPlants((current) => current.map((item) => item.id === plantId
-        ? completedPlant
-        : item));
+    const updatedPlant = setLivingHabitDate(plant, today, !checked, new Date().toISOString());
+    const nextHabitDays = habitDaysFor(updatedPlant);
+    const reachedGoal = !checked && habitDaysFor(plant) < plant.goalDays && nextHabitDays >= plant.goalDays;
+    const reachedMaturity = !checked && completedDaysFor(plant) < TOTAL_STAGES && completedDaysFor(updatedPlant) >= TOTAL_STAGES;
+    const visualStageChanged = completedDaysFor(plant) !== completedDaysFor(updatedPlant);
+    const saveToggle = () => {
+      setPlants((current) => current.map((item) => item.id === plantId ? updatedPlant : item));
       setMessages((current) => ({
         ...current,
-        [plantId]: reachedGoal
+        [plantId]: checked
+          ? "Галочка снята. Сегодняшняя отметка отменена, и растение мягко вернулось к предыдущему этапу."
+          : reachedGoal
           ? `Ты прошла выбранный путь — ${plant.goalDays} настоящих шагов. Этот успех уже сохранён, а дальше решать только тебе.`
           : reachedMaturity
             ? `Растение стало взрослым. Теперь ты продолжаешь не ради картинки, а чтобы действию становилось всё легче находить место в твоей жизни.`
-            : isGrowing
-              ? praiseMessages[(completedDaysFor(plant) + 1) % praiseMessages.length]
+            : completedDaysFor(plant) < TOTAL_STAGES
+              ? praiseMessages[completedDaysFor(updatedPlant) % praiseMessages.length]
               : `Ещё одно повторение укрепляет знакомый ритм. Уже ${nextHabitDays} из ${plant.goalDays} шагов.`,
       }));
-      if (reachedGoal) setCompletionCelebration(completedPlant);
+      if (checked) setCompletionCelebration((current) => current?.id === plantId ? null : current);
+      if (reachedGoal) setCompletionCelebration(updatedPlant);
     };
 
-    if (isGrowing) {
+    if (visualStageChanged) {
       setEffect({ plantId, kind: "growOut" });
       window.setTimeout(() => {
-        saveCompletion();
+        saveToggle();
         setEffect({ plantId, kind: "growIn" });
         window.setTimeout(() => setEffect((current) => current?.plantId === plantId && current.kind === "growIn" ? null : current), 820);
       }, 430);
     } else {
-      saveCompletion();
-      showCareEffect(plantId, "upgrade");
+      saveToggle();
+      if (!checked) showCareEffect(plantId, "upgrade");
     }
   }
 
@@ -584,6 +583,22 @@ export default function LivingPlantsPrototype() {
 
   function updateSelected(patch: Partial<Pick<PlantHabit, "frequency" | "reminder">>) {
     setPlants((current) => current.map((plant) => plant.id === selected.id ? { ...plant, ...patch, updatedAt: new Date().toISOString() } : plant));
+  }
+
+  function deletePlant(plantId: string) {
+    const remainingPlants = plants.filter((plant) => plant.id !== plantId);
+    setDeletedPlantIds((current) => [...new Set([...current, plantId])]);
+    setPlants(remainingPlants);
+    if (selectedId === plantId) setSelectedId(remainingPlants[0]?.id ?? emptyPlant.id);
+    setMessages((current) => {
+      const next = { ...current };
+      delete next[plantId];
+      return next;
+    });
+    setEffect((current) => current?.plantId === plantId ? null : current);
+    setCompletionCelebration((current) => current?.id === plantId ? null : current);
+    setShowDecorationPicker(false);
+    setPlantToDelete(null);
   }
 
   function movePlantCarousel(direction: -1 | 1) {
@@ -670,14 +685,16 @@ export default function LivingPlantsPrototype() {
           <div className={styles.habitList}>
             {activePlants.map((plant) => {
               const itemSpecies = getSpecies(plant.species);
-              const checked = plant.completionDates.includes(today) || plant.continuationDates.includes(today);
+              const checked = livingHabitDates(plant).includes(today);
               const active = plant.id === selected.id;
               return (
                 <button
                   key={plant.id}
                   className={`${styles.habitRow} ${checked ? styles.checked : ""} ${active ? styles.activeHabit : ""}`}
                   style={{ "--accent": itemSpecies.accent } as CSSProperties}
-                  onClick={() => completePlant(plant.id)}
+                  onClick={() => togglePlantCompletion(plant.id)}
+                  aria-pressed={checked}
+                  title={checked ? "Нажми ещё раз, чтобы отменить выполнение" : "Отметить привычку выполненной"}
                 >
                   <span className={styles.checkCircle}>{checked ? "✓" : ""}</span>
                   <span className={styles.habitCopy}>
@@ -696,6 +713,15 @@ export default function LivingPlantsPrototype() {
         </aside>
 
         <article className={`${styles.plantStage} ${effect?.plantId === selected.id ? styles.celebrating : ""}`} style={{ "--accent": selectedSpecies.accent } as CSSProperties}>
+          {plants.length === 0 ? (
+            <div className={styles.emptyGardenStage}>
+              <span aria-hidden="true">❧</span>
+              <small>СВОБОДНОЕ МЕСТО В САДУ</small>
+              <h2>Здесь может вырасти новая привычка</h2>
+              <p>Удалённые по ошибке записи не вернутся после синхронизации. Когда захочешь начать снова, посади новое семечко.</p>
+              <button type="button" onClick={() => setShowPlanting(true)}>Посадить привычку</button>
+            </div>
+          ) : <>
           <div className={styles.stageTop}>
             <div><span className={styles.eyebrow}>{selectedSpecies.family} · {selectedSpecies.name}</span><h2>{selected.habit}</h2></div>
             <div className={styles.stageCounter}><span>{selectedFrame + 1 >= TOTAL_STAGES ? "закрепление" : "этап"}</span><b>{selectedFrame + 1 >= TOTAL_STAGES ? habitDaysFor(selected) : selectedFrame + 1}</b><small>из {selectedFrame + 1 >= TOTAL_STAGES ? selected.goalDays : 30}</small></div>
@@ -788,6 +814,11 @@ export default function LivingPlantsPrototype() {
               <label><span>Напоминание</span><select value={selected.reminder ?? "off"} onChange={(event) => updateSelected({ reminder: event.target.value === "off" ? null : event.target.value })}><option value="off">Не напоминать</option><option value="09:00">В 09:00</option><option value="18:30">В 18:30</option><option value="21:30">В 21:30</option></select></label>
             </div>
           )}
+          <div className={styles.habitManagement}>
+            <span><b>Управление привычкой</b><small>Повторное нажатие на галочку отменяет сегодняшнюю отметку.</small></span>
+            <button type="button" onClick={() => setPlantToDelete(selected)}>Удалить привычку</button>
+          </div>
+          </>}
         </article>
       </section>
 
@@ -1037,6 +1068,22 @@ export default function LivingPlantsPrototype() {
             <div className={styles.completionReward}><span>♕</span><div><small>НОВОЕ ДОСТИЖЕНИЕ</small><b>{completionCelebration.goalDays} дней подтверждены</b></div><strong>+{LIVING_COMPLETION_REWARD} ✦</strong></div>
             <div className={styles.completionActions}>{completionCelebration.goalDays < MAX_GOAL_DAYS && <button type="button" autoFocus onClick={() => extendHabit(completionCelebration.id)}>Продолжить ещё 30 дней</button>}<button type="button" autoFocus={completionCelebration.goalDays >= MAX_GOAL_DAYS} onClick={() => { setCompletionCelebration(null); setActiveView("successes"); }}>Сохранить и завершить</button></div>
             <small className={styles.completionSaved}>Сохранено в твоих достижениях · после входа синхронизируется между устройствами</small>
+          </div>
+        </div>
+      )}
+
+      {plantToDelete && (
+        <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPlantToDelete(null); }}>
+          <div className={styles.deleteModal} role="alertdialog" aria-modal="true" aria-labelledby="delete-habit-title" aria-describedby="delete-habit-description">
+            <button className={styles.modalClose} type="button" onClick={() => setPlantToDelete(null)} aria-label="Закрыть">×</button>
+            <span className={styles.deleteMark} aria-hidden="true">⌫</span>
+            <small>УДАЛЕНИЕ ПРИВЫЧКИ</small>
+            <h2 id="delete-habit-title">Удалить «{plantToDelete.habit}»?</h2>
+            <p id="delete-habit-description">Привычка, её растение и история отметок исчезнут из сада на всех твоих устройствах. Это действие нельзя отменить.</p>
+            <div className={styles.deleteActions}>
+              <button type="button" onClick={() => setPlantToDelete(null)} autoFocus>Оставить в саду</button>
+              <button type="button" onClick={() => deletePlant(plantToDelete.id)}>Удалить навсегда</button>
+            </div>
           </div>
         </div>
       )}

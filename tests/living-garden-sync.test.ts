@@ -9,8 +9,10 @@ import {
   livingGardenLongestActivityStreak,
   livingDecorations,
   livingGardenPoints,
+  livingHabitDates,
   mergeLivingGardenSnapshots,
   sanitizeLivingGardenSnapshot,
+  setLivingHabitDate,
   unlockedLivingSpecies,
   type LivingGardenSnapshot,
   type LivingPlantHabit,
@@ -154,4 +156,44 @@ test("calculates current and longest activity streaks from real completion dates
   assert.equal(livingGardenActivityStreak(garden.plants, "2026-08-10"), 3);
   assert.equal(livingGardenLongestActivityStreak(garden.plants), 3);
   assert.ok(livingGardenAchievementIds(garden).includes("streak-three"));
+});
+
+test("keeps a cancelled daily completion cancelled after devices merge", () => {
+  const marked = plant({ baseCompletedDays: 0, completionDates: ["2026-08-10"] });
+  const cancelled = setLivingHabitDate(marked, "2026-08-10", false, "2026-08-10T12:00:00.000Z");
+  const merged = mergeLivingGardenSnapshots(snapshot([marked]), snapshot([cancelled]));
+
+  assert.deepEqual(livingHabitDates(merged.plants[0]), []);
+  assert.equal(habitDaysFor(merged.plants[0]), 0);
+  assert.equal(livingGardenPoints(merged), 120);
+});
+
+test("allows a cancelled completion to be marked again later", () => {
+  const marked = plant({ baseCompletedDays: 0, completionDates: ["2026-08-10"] });
+  const cancelled = setLivingHabitDate(marked, "2026-08-10", false, "2026-08-10T12:00:00.000Z");
+  const markedAgain = setLivingHabitDate(cancelled, "2026-08-10", true, "2026-08-10T13:00:00.000Z");
+  const merged = mergeLivingGardenSnapshots(snapshot([cancelled]), snapshot([markedAgain]));
+
+  assert.deepEqual(livingHabitDates(merged.plants[0]), ["2026-08-10"]);
+  assert.equal(habitDaysFor(merged.plants[0]), 1);
+});
+
+test("rolls back an accidental goal completion and its reward", () => {
+  const almostFinished = plant({ baseCompletedDays: 29 });
+  const finished = setLivingHabitDate(almostFinished, "2026-08-10", true, "2026-08-10T12:00:00.000Z");
+  const cancelled = setLivingHabitDate(finished, "2026-08-10", false, "2026-08-10T13:00:00.000Z");
+
+  assert.deepEqual(finished.rewardedGoals, [30]);
+  assert.equal(finished.completedAt, "2026-08-10T12:00:00.000Z");
+  assert.deepEqual(cancelled.rewardedGoals, []);
+  assert.equal(cancelled.completedAt, null);
+});
+
+test("keeps a deleted habit removed when an older device still has it", () => {
+  const olderDevice = snapshot([plant()]);
+  const deletion = { ...snapshot([]), deletedPlantIds: ["walk"] };
+  const merged = mergeLivingGardenSnapshots(olderDevice, deletion);
+
+  assert.deepEqual(merged.plants, []);
+  assert.deepEqual(merged.deletedPlantIds, ["walk"]);
 });

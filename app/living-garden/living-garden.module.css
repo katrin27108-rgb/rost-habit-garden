@@ -136,6 +136,18 @@
 .scheduleSettings label { padding: 9px 11px; border: 1px solid #dde0d6; border-radius: 14px; background: #fffdf8; }
 .scheduleSettings label > span { display: block; margin-bottom: 5px; color: #74827a; font-size: 10px; }
 .scheduleSettings select { width: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font: 500 12px Georgia,serif; cursor: pointer; }
+.habitManagement { position:relative; z-index:2; margin-top:10px; padding:10px 11px; display:flex; align-items:center; justify-content:space-between; gap:14px; border-top:1px solid rgba(48,80,65,.1); }
+.habitManagement span b,.habitManagement span small { display:block; }
+.habitManagement span b { color:#5f7268; font-size:10px; }
+.habitManagement span small { margin-top:3px; color:#819088; font-size:9px; line-height:1.35; }
+.habitManagement > button { flex:0 0 auto; padding:8px 11px; border:1px solid rgba(151,85,72,.2); border-radius:100px; background:#fff8f3; color:#9a584d; font-size:9px; font-weight:800; cursor:pointer; }
+.habitManagement > button:hover,.habitManagement > button:focus-visible { border-color:rgba(151,85,72,.42); background:#fff2eb; outline:none; }
+.emptyGardenStage { min-height:840px; position:relative; z-index:2; display:grid; place-content:center; justify-items:center; padding:40px; text-align:center; }
+.emptyGardenStage > span { width:84px; height:84px; display:grid; place-items:center; border:1px solid #cad6c4; border-radius:50%; background:#eff4e9; color:#66825b; font:500 43px Georgia,serif; }
+.emptyGardenStage > small { margin-top:22px; color:#71836f; font-size:10px; font-weight:850; letter-spacing:.13em; }
+.emptyGardenStage h2 { max-width:480px; margin:11px 0 0; font:500 clamp(32px,4vw,48px)/1 Georgia,serif; letter-spacing:-.035em; }
+.emptyGardenStage p { max-width:470px; margin:16px 0 22px; color:#687a70; font:400 14px/1.6 Georgia,serif; }
+.emptyGardenStage button { padding:13px 18px; border:0; border-radius:100px; background:var(--ink); color:#fffaf0; font-size:11px; font-weight:850; cursor:pointer; }
 .completedPlantNotice { margin-top:11px; padding:11px 13px; position:relative; z-index:2; display:grid; grid-template-columns:38px 1fr auto; align-items:center; gap:11px; border:1px solid color-mix(in srgb,var(--accent) 35%,#d8ded2); border-radius:15px; background:color-mix(in srgb,var(--accent) 8%,#fffdf8); }
 .completedPlantNotice > span { width:38px; height:38px; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb,var(--accent) 20%,#f5f3e9); color:var(--accent); font-size:18px; }
 .completedPlantNotice b,.completedPlantNotice small { display:block; }
@@ -437,6 +449,14 @@
 .celebrating .plantScene { box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent); }
 
 .modalBackdrop { position: fixed; z-index: 20; inset: 0; padding: 24px; display: grid; place-items: center; overflow: auto; background: rgba(24,45,37,.56); backdrop-filter: blur(13px); animation: fade-in .2s ease; }
+.deleteModal { width:min(470px,100%); padding:34px 34px 28px; position:relative; border:1px solid rgba(151,85,72,.2); border-radius:28px; background:linear-gradient(150deg,#fffdf8,#f7eee8); box-shadow:0 38px 110px rgba(23,42,34,.32); text-align:center; animation:modal-up .25s ease both; }
+.deleteMark { width:62px; height:62px; margin:0 auto 17px; display:grid; place-items:center; border-radius:50%; background:#f5dfd7; color:#9b5d51; font:500 29px Georgia,serif; }
+.deleteModal > small { color:#9b6255; font-size:9px; font-weight:900; letter-spacing:.14em; }
+.deleteModal h2 { margin:10px 0 12px; color:#264d40; font:500 30px/1.05 Georgia,serif; letter-spacing:-.025em; }
+.deleteModal p { margin:0; color:#687970; font:400 13px/1.6 Georgia,serif; }
+.deleteActions { margin-top:24px; display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.deleteActions button { min-height:45px; padding:9px 13px; border:1px solid #d6ddd2; border-radius:13px; background:#fffdf8; color:#51685d; font-size:10px; font-weight:850; cursor:pointer; }
+.deleteActions button:last-child { border-color:#9b5d51; background:#9b5d51; color:#fff; }
 .completionBackdrop { z-index:30; background:rgba(20,45,35,.68); }
 .completionModal { --accent:#d2a53c; position:relative; width:min(680px,100%); max-height:calc(100vh - 28px); padding:24px 42px 30px; overflow:auto; border:1px solid rgba(230,202,113,.5); border-radius:34px; background:radial-gradient(circle at 50% 26%,rgba(244,218,132,.2),transparent 29%),linear-gradient(150deg,#fffaf0,#edf2e5); box-shadow:0 45px 140px rgba(12,34,25,.4); text-align:center; animation:celebration-pop .55s cubic-bezier(.2,.8,.2,1) both; }
 .completionModal::after { content:""; position:absolute; inset:9px; pointer-events:none; border:1px solid rgba(190,151,52,.16); border-radius:27px; }
@@ -568,6 +588,9 @@
   .growthCaption { max-width:94%; white-space:normal; }
   .dayDots { grid-template-columns:repeat(10,1fr); }
   .scheduleSettings { grid-template-columns:1fr; }
+  .habitManagement { align-items:flex-start; flex-direction:column; }
+  .habitManagement > button { width:100%; }
+  .emptyGardenStage { min-height:520px; padding:25px 9px; }
   .sectionHeading { align-items:flex-start; flex-direction:column; }
   .sectionHeading p { text-align:left; }
   .plantShelf,.catalogGrid { grid-template-columns:1fr 1fr; }
@@ -632,6 +655,8 @@
   .choiceGrid { grid-template-columns:1fr 1fr; }
   .modalBackdrop { padding:8px; align-items:start; }
   .modal { max-height:none; margin:8px 0; padding:29px 16px 19px; border-radius:21px; }
+  .deleteModal { margin:8px 0; padding:29px 18px 21px; border-radius:22px; }
+  .deleteActions { grid-template-columns:1fr; }
   .modal h2 { padding-right:32px; font-size:29px; }
   .completionModal { max-height:none; margin:8px 0; padding:17px 15px 23px; border-radius:24px; }
   .completionPlant { height:210px; }

@@ -6,6 +6,12 @@ export type LivingSpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera"
 export type LivingFrequency = "daily" | "weekly" | "threeWeekly";
 export type LivingDecorationCode = "sign" | "lantern" | "stones";
 
+export type LivingCompletionOverride = {
+  date: string;
+  completed: boolean;
+  updatedAt: string;
+};
+
 export type LivingPlantHabit = {
   id: string;
   habit: string;
@@ -13,6 +19,7 @@ export type LivingPlantHabit = {
   baseCompletedDays: number;
   completionDates: string[];
   continuationDates: string[];
+  completionOverrides?: LivingCompletionOverride[];
   goalDays: number;
   rewardedGoals: number[];
   frequency: LivingFrequency;
@@ -36,6 +43,7 @@ export type LivingGardenSnapshot = {
   plants: LivingPlantHabit[];
   claimedAchievements: string[];
   purchases: LivingPurchase[];
+  deletedPlantIds?: string[];
 };
 
 const speciesCodes = new Set<LivingSpeciesCode>(["sunflower", "tomato", "lavender", "monstera", "oak", "apple", "peony", "sakura"]);
@@ -83,6 +91,34 @@ function cleanIso(value: unknown) {
   return Number.isFinite(Date.parse(candidate)) ? candidate : new Date(0).toISOString();
 }
 
+function cleanCompletionOverride(value: unknown): LivingCompletionOverride | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Record<string, unknown>;
+  const date = cleanDate(input.date);
+  if (!date || typeof input.completed !== "boolean") return null;
+  return { date, completed: input.completed, updatedAt: cleanIso(input.updatedAt) };
+}
+
+function mergedCompletionOverrides(...groups: (LivingCompletionOverride[] | undefined)[]) {
+  const overrides = new Map<string, LivingCompletionOverride>();
+  for (const override of groups.flatMap((group) => group ?? [])) {
+    const existing = overrides.get(override.date);
+    if (!existing || existing.updatedAt.localeCompare(override.updatedAt) < 0 || (existing.updatedAt === override.updatedAt && !override.completed)) {
+      overrides.set(override.date, override);
+    }
+  }
+  return [...overrides.values()].sort((left, right) => left.date.localeCompare(right.date)).slice(-720);
+}
+
+function effectiveHabitDates(completionDates: string[], continuationDates: string[], overrides: LivingCompletionOverride[] = []) {
+  const dates = new Set([...completionDates, ...continuationDates]);
+  for (const override of overrides) {
+    if (override.completed) dates.add(override.date);
+    else dates.delete(override.date);
+  }
+  return [...dates].sort();
+}
+
 export function livingAchievementReward(id: string) {
   if (id in achievementRewards) return achievementRewards[id];
   const daily = dailyAchievementPattern.exec(id);
@@ -107,6 +143,9 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
   const continuationDates = Array.isArray(input.continuationDates)
     ? [...new Set(input.continuationDates.map(cleanDate).filter((date): date is string => Boolean(date) && !completionDateSet.has(date)))].sort().slice(0, Math.max(0, goalDays - 30))
     : [];
+  const completionOverrides = Array.isArray(input.completionOverrides)
+    ? mergedCompletionOverrides(input.completionOverrides.map(cleanCompletionOverride).filter((override): override is LivingCompletionOverride => Boolean(override)))
+    : [];
   const reminder = input.reminder === null ? null : cleanText(input.reminder, 5) || null;
   const updatedAt = cleanIso(input.updatedAt);
   const createdAt = input.createdAt
@@ -114,20 +153,21 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
     : completionDates[0]
       ? `${completionDates[0]}T00:00:00.000Z`
       : updatedAt;
-  const habitDays = Math.min(goalDays, baseCompletedDays + completionDates.length + continuationDates.length);
+  const effectiveDates = effectiveHabitDates(completionDates, continuationDates, completionOverrides);
+  const habitDays = Math.min(goalDays, baseCompletedDays + effectiveDates.length);
   const isCompleted = habitDays >= goalDays;
   const completedAt = input.completedAt
     ? cleanIso(input.completedAt)
     : isCompleted
-      ? [...completionDates, ...continuationDates].sort().at(-1)
-        ? `${[...completionDates, ...continuationDates].sort().at(-1)}T00:00:00.000Z`
+      ? effectiveDates.at(-1)
+        ? `${effectiveDates.at(-1)}T00:00:00.000Z`
         : updatedAt
       : null;
   const sanitizedRewardedGoals = Array.isArray(input.rewardedGoals)
     ? [...new Set(input.rewardedGoals.map(Number).filter((goal) => Number.isInteger(goal) && goal >= 30 && goal <= habitDays))].sort((a, b) => a - b).slice(0, 12)
     : [];
   const rewardedGoals = isCompleted ? [...new Set([...sanitizedRewardedGoals, goalDays])].sort((a, b) => a - b) : sanitizedRewardedGoals;
-  return { id, habit, species, baseCompletedDays, completionDates, continuationDates, goalDays, rewardedGoals, frequency, reminder, createdAt, completedAt, updatedAt };
+  return { id, habit, species, baseCompletedDays, completionDates, continuationDates, completionOverrides, goalDays, rewardedGoals, frequency, reminder, createdAt, completedAt, updatedAt };
 }
 
 function cleanPurchase(value: unknown): LivingPurchase | null {
@@ -146,25 +186,60 @@ function cleanPurchase(value: unknown): LivingPurchase | null {
 export function sanitizeLivingGardenSnapshot(value: unknown): LivingGardenSnapshot | null {
   if (!value || typeof value !== "object") return null;
   const input = value as Record<string, unknown>;
-  const plants = Array.isArray(input.plants) ? input.plants.map(cleanPlant).filter((plant): plant is LivingPlantHabit => Boolean(plant)).slice(0, 80) : [];
+  const deletedPlantIds = Array.isArray(input.deletedPlantIds)
+    ? [...new Set(input.deletedPlantIds.map((id) => cleanText(id, 80)).filter(Boolean))].slice(0, 500)
+    : [];
+  const deletedPlantIdSet = new Set(deletedPlantIds);
+  const plants = Array.isArray(input.plants) ? input.plants.map(cleanPlant).filter((plant): plant is LivingPlantHabit => Boolean(plant) && !deletedPlantIdSet.has(plant.id)).slice(0, 80) : [];
   if (!plants.length && input.version !== LIVING_GARDEN_VERSION) return null;
   const claimedAchievements = Array.isArray(input.claimedAchievements)
     ? [...new Set(input.claimedAchievements.map((id) => cleanText(id, 40)).filter((id) => legacyClaimedAchievementIds.has(id)))]
     : [];
   const purchases = Array.isArray(input.purchases) ? input.purchases.map(cleanPurchase).filter((purchase): purchase is LivingPurchase => Boolean(purchase)).slice(0, 500) : [];
-  return { version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases };
+  return { version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases, deletedPlantIds };
 }
 
 export function completedDaysFor(plant: LivingPlantHabit) {
-  return Math.min(30, plant.baseCompletedDays + plant.completionDates.length);
+  return Math.min(30, plant.baseCompletedDays + livingHabitDates(plant).length);
 }
 
 export function habitDaysFor(plant: LivingPlantHabit) {
-  return Math.min(plant.goalDays, plant.baseCompletedDays + plant.completionDates.length + plant.continuationDates.length);
+  return Math.min(plant.goalDays, plant.baseCompletedDays + livingHabitDates(plant).length);
 }
 
 export function livingHabitDates(plant: LivingPlantHabit) {
-  return [...new Set([...plant.completionDates, ...plant.continuationDates])].sort();
+  return effectiveHabitDates(plant.completionDates, plant.continuationDates, plant.completionOverrides);
+}
+
+export function setLivingHabitDate(plant: LivingPlantHabit, date: string, completed: boolean, updatedAt: string) {
+  if (!cleanDate(date)) return plant;
+  const completionDates = plant.completionDates.filter((item) => item !== date);
+  const continuationDates = plant.continuationDates.filter((item) => item !== date);
+  if (completed) {
+    if (completedDaysFor(plant) < 30) completionDates.push(date);
+    else continuationDates.push(date);
+  }
+  const completionOverrides = mergedCompletionOverrides(
+    plant.completionOverrides,
+    [{ date, completed, updatedAt: cleanIso(updatedAt) }],
+  );
+  const draft = {
+    ...plant,
+    completionDates: [...new Set(completionDates)].sort(),
+    continuationDates: [...new Set(continuationDates)].sort(),
+    completionOverrides,
+    updatedAt: cleanIso(updatedAt),
+  };
+  const nextHabitDays = habitDaysFor(draft);
+  const retainedGoals = plant.rewardedGoals.filter((goal) => goal <= nextHabitDays);
+  const rewardedGoals = completed && nextHabitDays >= plant.goalDays
+    ? [...new Set([...retainedGoals, plant.goalDays])].sort((left, right) => left - right)
+    : retainedGoals;
+  return {
+    ...draft,
+    rewardedGoals,
+    completedAt: rewardedGoals.length ? plant.completedAt ?? draft.updatedAt : null,
+  };
 }
 
 function activityDateKeys(plants: LivingPlantHabit[]) {
@@ -244,27 +319,34 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
     const completionDates = [...new Set([...existing.completionDates, ...plant.completionDates])].sort().slice(0, Math.max(0, 30 - baseCompletedDays));
     const completionDateSet = new Set(completionDates);
     const continuationDates = [...new Set([...existing.continuationDates, ...plant.continuationDates])].filter((date) => !completionDateSet.has(date)).sort().slice(0, Math.max(0, goalDays - 30));
+    const completionOverrides = mergedCompletionOverrides(existing.completionOverrides, plant.completionOverrides);
     const createdAt = existing.createdAt.localeCompare(plant.createdAt) <= 0 ? existing.createdAt : plant.createdAt;
     const completedAtCandidates = [existing.completedAt, plant.completedAt].filter((value): value is string => Boolean(value)).sort();
-    const habitDays = Math.min(goalDays, baseCompletedDays + completionDates.length + continuationDates.length);
-    const completedAt = completedAtCandidates[0] ?? (habitDays >= goalDays ? ([...completionDates, ...continuationDates].sort().at(-1) ? `${[...completionDates, ...continuationDates].sort().at(-1)}T00:00:00.000Z` : latest.updatedAt) : null);
+    const effectiveDates = effectiveHabitDates(completionDates, continuationDates, completionOverrides);
+    const habitDays = Math.min(goalDays, baseCompletedDays + effectiveDates.length);
     const mergedRewardedGoals = [...new Set([...existing.rewardedGoals, ...plant.rewardedGoals])].filter((goal) => goal <= habitDays);
     const rewardedGoals = habitDays >= goalDays ? [...new Set([...mergedRewardedGoals, goalDays])].sort((a, b) => a - b) : mergedRewardedGoals.sort((a, b) => a - b);
-    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, continuationDates, goalDays, rewardedGoals, createdAt, completedAt });
+    const completedAt = rewardedGoals.length
+      ? completedAtCandidates[0] ?? (effectiveDates.at(-1) ? `${effectiveDates.at(-1)}T00:00:00.000Z` : latest.updatedAt)
+      : null;
+    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, continuationDates, completionOverrides, goalDays, rewardedGoals, createdAt, completedAt });
   }
 
+  const deletedPlantIds = [...new Set([...(left.deletedPlantIds ?? []), ...(right.deletedPlantIds ?? [])])];
+  const deletedPlantIdSet = new Set(deletedPlantIds);
   const purchases = new Map<string, LivingPurchase>();
   for (const purchase of [...left.purchases, ...right.purchases]) purchases.set(purchase.id, purchase);
   return {
     version: LIVING_GARDEN_VERSION,
-    plants: [...plants.values()],
+    plants: [...plants.values()].filter((plant) => !deletedPlantIdSet.has(plant.id)),
     claimedAchievements: [...new Set([...left.claimedAchievements, ...right.claimedAchievements])],
     purchases: [...purchases.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    deletedPlantIds,
   };
 }
 
 export function livingGardenPoints(snapshot: LivingGardenSnapshot) {
-  const completionStars = snapshot.plants.reduce((sum, plant) => sum + (plant.completionDates.length + plant.continuationDates.length) * 10, 0);
+  const completionStars = snapshot.plants.reduce((sum, plant) => sum + livingHabitDates(plant).length * 10, 0);
   const completedPlantStars = snapshot.plants.reduce((sum, plant) => sum + plant.rewardedGoals.length * LIVING_COMPLETION_REWARD, 0);
   const achievementStars = livingGardenAchievementIds(snapshot).reduce((sum, id) => sum + livingAchievementReward(id), 0);
   const spentStars = snapshot.purchases.reduce((sum, purchase) => sum + purchase.price, 0);
