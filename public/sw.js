@@ -1,4 +1,4 @@
-const CACHE = "rost-shell-v5-garden-rewards";
+const CACHE = "rost-shell-v6-account-sync";
 const APP_ROOT = new URL("./", self.location.href).pathname;
 
 self.addEventListener("install", () => self.skipWaiting());
