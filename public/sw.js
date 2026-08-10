@@ -1,4 +1,4 @@
-const CACHE = "rost-shell-v11-auto-achievements";
+const CACHE = "rost-shell-v12-plant-carousel";
 const APP_ROOT = new URL("./", self.location.href).pathname;
 
 self.addEventListener("install", () => self.skipWaiting());

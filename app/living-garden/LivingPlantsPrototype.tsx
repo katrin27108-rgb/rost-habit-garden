@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   LIVING_GARDEN_STORAGE_KEY,
   LIVING_GARDEN_VERSION,
@@ -337,6 +337,7 @@ export default function LivingPlantsPrototype() {
   const [newReminder, setNewReminder] = useState<string | null>("09:00");
   const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics" | "tips">("garden");
   const [statisticsMonth, setStatisticsMonth] = useState(() => livingMonthKey());
+  const carouselTouchStart = useRef<number | null>(null);
 
   const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases }), [claimedAchievements, plants, purchases]);
   const points = livingGardenPoints(snapshot);
@@ -353,6 +354,10 @@ export default function LivingPlantsPrototype() {
   const savedSuccessActions = completedPlants.reduce((sum, plant) => sum + Math.max(0, ...plant.rewardedGoals), 0);
   const savedSuccessRewards = completedPlants.reduce((sum, plant) => sum + plant.rewardedGoals.length * LIVING_COMPLETION_REWARD, 0);
   const selected = plants.find((plant) => plant.id === selectedId) ?? plants[0];
+  const carouselPlants = activePlants.some((plant) => plant.id === selected.id) ? activePlants : plants;
+  const selectedCarouselIndex = Math.max(0, carouselPlants.findIndex((plant) => plant.id === selected.id));
+  const previousCarouselPlant = carouselPlants.length > 1 ? carouselPlants[(selectedCarouselIndex - 1 + carouselPlants.length) % carouselPlants.length] : null;
+  const nextCarouselPlant = carouselPlants.length > 1 ? carouselPlants[(selectedCarouselIndex + 1) % carouselPlants.length] : null;
   const selectedSpecies = getSpecies(selected.species);
   const selectedFrame = frameFor(selected);
   const todayPlants = plants.filter((plant) => habitDaysFor(plant) < plant.goalDays || plant.completionDates.includes(today) || plant.continuationDates.includes(today));
@@ -581,6 +586,14 @@ export default function LivingPlantsPrototype() {
     setPlants((current) => current.map((plant) => plant.id === selected.id ? { ...plant, ...patch, updatedAt: new Date().toISOString() } : plant));
   }
 
+  function movePlantCarousel(direction: -1 | 1) {
+    if (carouselPlants.length < 2) return;
+    const currentIndex = Math.max(0, carouselPlants.findIndex((plant) => plant.id === selected.id));
+    const nextIndex = (currentIndex + direction + carouselPlants.length) % carouselPlants.length;
+    setSelectedId(carouselPlants[nextIndex].id);
+    setShowDecorationPicker(false);
+  }
+
   function plantNewHabit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newHabit.trim();
@@ -688,9 +701,49 @@ export default function LivingPlantsPrototype() {
             <div className={styles.stageCounter}><span>{selectedFrame + 1 >= TOTAL_STAGES ? "закрепление" : "этап"}</span><b>{selectedFrame + 1 >= TOTAL_STAGES ? habitDaysFor(selected) : selectedFrame + 1}</b><small>из {selectedFrame + 1 >= TOTAL_STAGES ? selected.goalDays : 30}</small></div>
           </div>
 
-          <div className={styles.plantScene}>
+          <div
+            className={styles.plantScene}
+            role="region"
+            aria-roledescription="карусель"
+            aria-label="Растения привычек"
+            onTouchStart={(event) => { carouselTouchStart.current = event.changedTouches[0]?.clientX ?? null; }}
+            onTouchEnd={(event) => {
+              const start = carouselTouchStart.current;
+              carouselTouchStart.current = null;
+              if (start === null) return;
+              const distance = (event.changedTouches[0]?.clientX ?? start) - start;
+              if (Math.abs(distance) >= 45) movePlantCarousel(distance < 0 ? 1 : -1);
+            }}
+          >
             <span className={styles.sunGlow} aria-hidden="true" />
-            <PlantArt plant={selected} effect={effect?.plantId === selected.id ? effect.kind : undefined} decoration={decorationsByPlant[selected.id]} />
+            {previousCarouselPlant && (
+              <button
+                type="button"
+                className={`${styles.carouselPeek} ${styles.carouselPrevious}`}
+                onClick={() => movePlantCarousel(-1)}
+                aria-label={`Предыдущее растение: ${previousCarouselPlant.habit}`}
+              >
+                <PlantArt plant={previousCarouselPlant} decoration={decorationsByPlant[previousCarouselPlant.id]} />
+                <span className={styles.carouselArrow} aria-hidden="true">‹</span>
+                <strong>{previousCarouselPlant.habit}</strong>
+              </button>
+            )}
+            <div key={selected.id} className={styles.carouselCurrent}>
+              <PlantArt plant={selected} effect={effect?.plantId === selected.id ? effect.kind : undefined} decoration={decorationsByPlant[selected.id]} />
+            </div>
+            {nextCarouselPlant && (
+              <button
+                type="button"
+                className={`${styles.carouselPeek} ${styles.carouselNext}`}
+                onClick={() => movePlantCarousel(1)}
+                aria-label={`Следующее растение: ${nextCarouselPlant.habit}`}
+              >
+                <PlantArt plant={nextCarouselPlant} decoration={decorationsByPlant[nextCarouselPlant.id]} />
+                <span className={styles.carouselArrow} aria-hidden="true">›</span>
+                <strong>{nextCarouselPlant.habit}</strong>
+              </button>
+            )}
+            {carouselPlants.length > 1 && <span className={styles.carouselPosition}>{selectedCarouselIndex + 1} из {carouselPlants.length}</span>}
             <div className={styles.growthCaption}><span>Сейчас происходит</span><strong>{selectedFrame + 1 >= TOTAL_STAGES && habitDaysFor(selected) < selected.goalDays ? `Взрослое растение · привычка закрепляется, ${habitDaysFor(selected)} из ${selected.goalDays}` : growthDescriptions[selected.species][selectedFrame]}</strong></div>
           </div>
 

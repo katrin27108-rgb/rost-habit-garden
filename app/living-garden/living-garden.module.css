@@ -91,8 +91,24 @@
 .stageCounter span { grid-column: 1/-1; color: #748178; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
 .stageCounter b { color: var(--accent); font: 500 30px/1 Georgia,serif; }
 .stageCounter small { color: #748178; font-size: 10px; }
-.plantScene { height: 350px; margin-top: 3px; overflow: hidden; border-radius: 25px; background: radial-gradient(ellipse at 50% 86%,rgba(92,112,75,.09),transparent 42%); }
+.plantScene { height: 350px; margin-top: 3px; overflow: hidden; border-radius: 25px; background: radial-gradient(ellipse at 50% 86%,rgba(92,112,75,.09),transparent 42%); touch-action:pan-y; }
 .sunGlow { position: absolute; left: 50%; top: 42%; width: 280px; height: 280px; transform: translate(-50%,-50%); border-radius: 50%; background: color-mix(in srgb,var(--accent) 10%,#fff); filter: blur(4px); opacity: .55; }
+.carouselCurrent { position:absolute; z-index:3; inset:0 13%; animation:carousel-arrive .36s cubic-bezier(.2,.75,.25,1) both; }
+.carouselCurrent > .plantArt { height:100%; }
+.carouselCurrent .frameImage { bottom:0; width:100%; height:100%; object-fit:contain; }
+.carouselPeek { position:absolute; z-index:4; top:42px; bottom:48px; width:19%; padding:0; overflow:hidden; border:1px solid rgba(56,82,68,.13); background:rgba(255,253,248,.68); color:#456052; cursor:pointer; opacity:.72; transition:opacity .2s ease,transform .25s ease,background .2s ease; }
+.carouselPeek:hover,.carouselPeek:focus-visible { opacity:1; background:rgba(255,253,248,.9); outline:none; }
+.carouselPeek > .plantArt { position:absolute; inset:0 0 31px; width:100%; height:auto; }
+.carouselPeek .frameImage { bottom:0; width:100%; height:100%; object-fit:contain; }
+.carouselPeek > strong { position:absolute; z-index:7; left:9px; right:9px; bottom:10px; overflow:hidden; color:#5d7066; font:600 9px/1.2 Inter,sans-serif; text-overflow:ellipsis; white-space:nowrap; }
+.carouselPrevious { left:-6%; border-radius:0 22px 22px 0; }
+.carouselNext { right:-6%; border-radius:22px 0 0 22px; }
+.carouselPrevious:hover,.carouselPrevious:focus-visible { transform:translateX(4px); }
+.carouselNext:hover,.carouselNext:focus-visible { transform:translateX(-4px); }
+.carouselArrow { position:absolute; z-index:8; top:50%; width:28px; height:28px; display:grid; place-items:center; transform:translateY(-50%); border:1px solid rgba(53,79,64,.14); border-radius:50%; background:rgba(255,253,248,.91); color:var(--ink); font:500 24px/1 Georgia,serif; box-shadow:0 6px 16px rgba(44,70,55,.12); }
+.carouselPrevious .carouselArrow { right:8px; }
+.carouselNext .carouselArrow { left:8px; }
+.carouselPosition { position:absolute; z-index:6; top:10px; left:50%; padding:5px 9px; transform:translateX(-50%); border:1px solid rgba(55,83,67,.1); border-radius:100px; background:rgba(255,253,248,.72); color:#718078; font-size:9px; font-weight:750; letter-spacing:.06em; }
 .plantArt { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; }
 .plantArt::after { content:""; position:absolute; z-index:-1; left:50%; bottom:8%; width:48%; height:15px; transform:translateX(-50%); border-radius:50%; background:color-mix(in srgb,var(--accent) 17%,transparent); filter:blur(9px); }
 .frameImage { position: absolute; z-index: 2; left: 50%; bottom: -1%; width: min(137%,560px); height: 108%; object-fit: contain; object-position: center bottom; transform: translateX(-50%); transform-origin: 50% 88%; filter: saturate(.87) contrast(.94) brightness(1.04) drop-shadow(0 18px 15px rgba(47,46,30,.13)); }
@@ -475,6 +491,7 @@
 
 @keyframes single-frame-out { from { opacity:1; transform:translateX(-50%) scale(1); } to { opacity:0; transform:translateX(-50%) scale(.965); } }
 @keyframes single-frame-in { from { opacity:0; transform:translateX(-50%) scale(.97); } to { opacity:1; transform:translateX(-50%) scale(1); } }
+@keyframes carousel-arrive { from { opacity:0; transform:translateY(7px) scale(.985); } to { opacity:1; transform:none; } }
 @keyframes plant-happy { 0%,100% { transform:translateX(-50%) rotate(0); } 35% { transform:translateX(-50%) rotate(-1.5deg); } 70% { transform:translateX(-50%) rotate(1.5deg); } }
 @keyframes fertilizer-bloom { 0% { opacity:0; transform:translate(-50%,18px) scale(.45); } 30% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-72px) scale(1.4) rotate(16deg); } }
 @keyframes hearts-float { 0% { opacity:0; transform:translate(-50%,18px) scale(.5); } 30% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-76px) scale(1.2); } }
@@ -540,6 +557,13 @@
   .plantStage { min-height:0; }
   .stageTop h2 { font-size:25px; }
   .plantScene { height:330px; }
+  .carouselCurrent { inset:0 11%; }
+  .carouselPeek { top:55px; bottom:58px; width:17%; }
+  .carouselPrevious { left:-6%; }
+  .carouselNext { right:-6%; }
+  .carouselPeek > strong { display:none; }
+  .carouselPeek > .plantArt { inset:0; }
+  .carouselArrow { width:27px; height:27px; font-size:21px; }
   .frameImage { width:min(145%,510px); }
   .growthCaption { max-width:94%; white-space:normal; }
   .dayDots { grid-template-columns:repeat(10,1fr); }
