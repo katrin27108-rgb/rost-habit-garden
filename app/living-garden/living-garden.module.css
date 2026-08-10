@@ -44,36 +44,52 @@
 .heroStats strong { font: 500 28px/1 Georgia, serif; }
 .heroStats span { margin-top: 6px; color: var(--muted); font-size: 9px; }
 
-.featured { --accent: #e8ad2d; position: relative; min-height: 560px; padding: 30px 34px 25px; overflow: hidden; border: 1px solid rgba(52,85,65,.12); border-radius: 34px; background: #fbf8f0; box-shadow: 0 35px 90px rgba(54,70,55,.11); }
+.featured { --accent: #e8ad2d; position: relative; min-height: 590px; padding: 30px 34px 25px; overflow: hidden; border: 1px solid rgba(52,85,65,.12); border-radius: 34px; background: #fbf8f0; box-shadow: 0 35px 90px rgba(54,70,55,.11); }
 .featured::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 45%); pointer-events: none; }
 .featuredHeading,.featured h2,.featuredFooter,.featured > .progressTrack { position: relative; z-index: 3; }
 .featuredHeading { display: flex; align-items: center; justify-content: space-between; color: #7d8a7e; font-size: 9px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .featuredHeading b { color: var(--accent); font: 500 27px Georgia, serif; letter-spacing: 0; }
 .featured h2 { margin: 8px 0 0; font: 500 24px/1.1 Georgia, serif; }
-.speech { position: absolute; z-index: 5; top: 76px; right: 22px; width: 220px; padding: 14px 16px 15px 24px; border: 1px solid rgba(57,87,68,.13); border-radius: 18px 18px 4px 18px; background: rgba(255,255,255,.9); box-shadow: 0 14px 35px rgba(47,70,55,.08); color: #51655d; font: 400 11px/1.55 Georgia, serif; }
+.featuredInteraction { position: relative; z-index: 2; min-height: 410px; margin-top: 13px; display: grid; grid-template-columns: minmax(0,1.14fr) minmax(190px,.86fr); align-items: stretch; gap: 17px; }
+.plantViewport { position: relative; min-width: 0; min-height: 410px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent); border-radius: 24px; background: radial-gradient(circle at 50% 52%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 55%), linear-gradient(180deg,#fffdf8,#f5f0e6); }
+.plantViewport > .plantArt { height: 388px; }
+.growthNow { position: absolute; z-index: 4; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: 88%; padding: 7px 12px; border: 1px solid rgba(54,84,68,.12); border-radius: 100px; background: rgba(255,253,248,.9); color: #64776d; font-size: 8px; line-height: 1.3; text-align: center; white-space: nowrap; }
+.growthControl { min-width: 0; padding: 17px; display: flex; flex-direction: column; justify-content: center; border: 1px solid rgba(53,84,67,.12); border-radius: 24px; background: rgba(255,255,255,.58); }
+.speech { position: relative; z-index: 5; width: 100%; margin-bottom: 22px; padding: 14px 16px 15px 24px; border: 1px solid rgba(57,87,68,.13); border-radius: 18px 18px 4px 18px; background: rgba(255,255,255,.9); box-shadow: 0 14px 35px rgba(47,70,55,.08); color: #51655d; font: 400 11px/1.55 Georgia, serif; }
 .speech span { position: absolute; left: 10px; top: 6px; color: var(--accent); font-size: 22px; }
-.plantButton { position: relative; z-index: 2; width: 100%; height: 350px; margin: 13px 0 0; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
-.plantButton:focus-visible { outline: 3px solid var(--accent); outline-offset: 5px; border-radius: 20px; }
-.plantButton:disabled { cursor: default; }
-.plantArt { --plant-scale: 1; --plant-previous-scale: 1; position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; }
+.growthControl > strong { margin-top: 8px; font: 500 22px/1.15 Georgia,serif; }
+.growthControl > p { margin: 9px 0 14px; color: var(--muted); font: 400 10px/1.55 Georgia,serif; }
+.growAction { width: 100%; min-height: 67px; padding: 10px 13px; display: grid; grid-template-columns: 37px 1fr; align-items: center; gap: 10px; border: 0; border-radius: 17px; background: var(--ink); color: #fffdf7; text-align: left; cursor: pointer; box-shadow: 0 12px 25px rgba(24,63,52,.17); transition: transform .2s ease, box-shadow .2s ease; }
+.growAction:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 31px rgba(24,63,52,.21); }
+.growAction:disabled { cursor: default; opacity: .76; }
+.growAction > span { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 50%; background: #f0d78d; color: var(--ink); font-size: 17px; }
+.growAction b { font-size: 10px; line-height: 1.35; }
+.nextChange { margin-top: 10px; color: color-mix(in srgb,var(--accent) 80%,#587064); font-size: 8px; line-height: 1.45; }
+.plantArt { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; }
 .plantArt::after { content: ""; position: absolute; z-index: -1; left: 50%; bottom: 11%; width: 54%; height: 16px; transform: translateX(-50%); border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); filter: blur(8px); opacity: .58; }
-.plantImage { position: absolute; left: 50%; bottom: 7%; width: min(86%, 330px); height: auto; transform: translateX(-50%) scale(var(--plant-scale)); transform-origin: 50% 100%; filter: saturate(.78) contrast(.9) brightness(1.06) drop-shadow(0 18px 14px rgba(50,49,31,.12)); transition: transform .78s cubic-bezier(.2,.85,.25,1), filter .35s ease; }
-.plantArt::before { content: ""; position: absolute; left: 50%; bottom: 13%; width: 14px; height: 9px; transform: translateX(-50%) rotate(-16deg) scale(calc(1 - var(--plant-scale) * .25)); border-radius: 80% 20% 80% 20%; background: #9a6b42; box-shadow: 0 0 0 9px rgba(154,107,66,.07); opacity: clamp(0, calc(1 - var(--plant-scale) * 2.4), 1); transition: opacity .55s ease, transform .7s ease; }
-.grow .plantImage { animation: growth-release 1.15s cubic-bezier(.2,.85,.25,1) both; }
-.tapHint { position: absolute; z-index: 7; left: 50%; bottom: 7px; transform: translateX(-50%); padding: 7px 11px; border: 1px solid rgba(59,89,70,.12); border-radius: 100px; background: rgba(255,253,248,.88); color: #6b7b72; font-size: 8px; white-space: nowrap; }
+.botanicalSvg { width: 100%; height: 100%; padding: 9px 10px 4px; overflow: visible; filter: drop-shadow(0 15px 14px rgba(48,65,48,.1)); }
+.growingPath { fill: none; stroke: var(--stem); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--part)); transition: stroke-dashoffset 1.05s cubic-bezier(.2,.8,.25,1); }
+.mainStem { stroke-width: 10; }
+.branchStem { stroke-width: 5; }
+.lavenderStem { stroke-width: 4.5; }
+.monsteraStem { stroke-width: 7; }
+.rootPath { stroke: #9a7657; stroke-width: 3; }
+.botanicalPart { opacity: var(--part); transform: scale(var(--part)); transform-origin: 0 0; transition: opacity .75s ease, transform 1.05s cubic-bezier(.2,.8,.25,1); }
+.plantGrowing .growingPath { animation: stem-extend 1.2s cubic-bezier(.2,.8,.25,1) both; }
+.plantGrowing .botanicalPart { animation: botanical-unfurl 1.2s cubic-bezier(.2,.8,.25,1) both; }
 .featuredFooter { display: flex; justify-content: space-between; gap: 12px; color: #849088; font-size: 8px; }
 .featuredFooter strong { color: var(--accent); font-weight: 800; }
 .progressTrack { height: 5px; margin-top: 12px; overflow: hidden; border-radius: 10px; background: #e6e4da; }
 .progressTrack i,.cardProgress i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .6s ease; }
 
-.fertilizer .plantImage { filter: drop-shadow(0 20px 17px rgba(50,49,31,.12)) saturate(1.05) brightness(1.08); }
+.fertilizer .botanicalSvg { filter: drop-shadow(0 20px 17px rgba(50,49,31,.12)) saturate(1.08) brightness(1.05); }
 .fertilizerDust,.kindHearts,.growthLeaves { position: absolute; z-index: 8; left: 50%; pointer-events: none; color: var(--accent); white-space: nowrap; }
 .fertilizerDust { bottom: 33%; font-size: 21px; letter-spacing: 18px; animation: fertilizer-bloom 1.6s ease both; }
 .kindHearts { bottom: 36%; font-size: 24px; letter-spacing: 22px; animation: hearts-float 1.6s ease both; }
 .growthLeaves { top: 17%; font-size: 29px; animation: growth-pop 1.5s ease both; }
-.celebrating .plantImage { animation: grow-breathe 1.1s ease both; }
+.celebrating .plantViewport { box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent), 0 15px 35px color-mix(in srgb,var(--accent) 10%,transparent); }
 
-.ritual { padding: 21px; display: grid; grid-template-columns: 1.05fr 1.35fr 1fr 1fr; gap: 10px; border: 1px solid rgba(44,77,62,.12); border-radius: 24px; background: rgba(255,253,248,.7); box-shadow: 0 20px 60px rgba(55,72,57,.06); }
+.ritual { padding: 21px; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; border: 1px solid rgba(44,77,62,.12); border-radius: 24px; background: rgba(255,253,248,.7); box-shadow: 0 20px 60px rgba(55,72,57,.06); }
 .ritualIntro { padding: 10px 15px; display: flex; flex-direction: column; justify-content: center; }
 .ritualIntro strong { margin-top: 8px; font: 500 16px/1.3 Georgia, serif; }
 .ritualIntro small { margin-top: 6px; color: var(--muted); font-size: 8px; line-height: 1.45; }
@@ -111,15 +127,11 @@
 .streakNote > span { color: #76945e; font-size: 18px; }
 .streakNote p { margin: 0; color: #748379; font-size: 8px; line-height: 1.5; }
 .streakNote strong { color: var(--ink); font-size: 10px; }
-.stageTrack { height: 6px; margin: 43px 0 14px; overflow: hidden; border-radius: 10px; background: #e3e6dc; }
-.stageTrack i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9ab773, var(--ink)); transition: width .7s ease; }
-.stages { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; }
-.stages div { color: #a2aaa0; text-align: center; }
-.stages span,.stages small { display: block; }
-.stages span { font-size: 17px; }
-.stages small { margin-top: 5px; font-size: 7px; }
-.stages .stageReached { color: #6f8f5c; }
-.miniChart { margin-top: 34px; padding-top: 16px; border-top: 1px solid #e4e5dd; }
+.growthDetails { display: grid; gap: 8px; }
+.growthDetails > div { padding: 11px 13px; display: grid; grid-template-columns: 88px 1fr; align-items: center; gap: 10px; border: 1px solid #e0e3d9; border-radius: 14px; background: #fffefa; }
+.growthDetails span { color: #88958c; font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.growthDetails strong { color: var(--ink); font: 500 12px/1.35 Georgia,serif; }
+.miniChart { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e4e5dd; }
 .miniChart > span { color: #6c7c73; font-size: 9px; font-weight: 750; }
 .miniChart > div { height: 70px; margin-top: 13px; display: flex; align-items: flex-end; gap: 8px; }
 .miniChart i { flex: 1; min-height: 8px; border-radius: 7px 7px 2px 2px; background: #d5dec9; }
@@ -135,7 +147,7 @@
 .cardTop { height: 48px; padding: 14px 16px 0; display: flex; justify-content: space-between; color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
 .cardTop b { color: var(--accent); }
 .plantCard > .plantArt { height: 210px; margin: 0 12px; }
-.plantCard > .plantArt .plantImage { width: 90%; bottom: 4%; }
+.plantCard > .plantArt .botanicalSvg { padding: 2px 22px 0; }
 .cardCopy { padding: 2px 18px 0; }
 .cardCopy small,.cardCopy strong,.cardCopy span { display: block; }
 .cardCopy small { color: var(--accent); font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
@@ -166,7 +178,7 @@
 .speciesGrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
 .speciesGrid button { min-width: 0; padding: 9px 7px 12px; border: 1px solid #dfe1d7; border-radius: 15px; background: #fff; color: var(--ink); cursor: pointer; }
 .speciesGrid .plantArt { height: 115px; }
-.speciesGrid .plantArt .plantImage { width: 92%; }
+.speciesGrid .plantArt .botanicalSvg { padding: 0 18px; }
 .speciesGrid b,.speciesGrid small { display: block; }
 .speciesGrid b { font: 500 12px Georgia, serif; }
 .speciesGrid small { margin-top: 3px; color: var(--muted); font-size: 7px; }
@@ -178,7 +190,8 @@
 .durationGrid button.selectedDuration { border-color: #78956b; background: #f0f4e9; }
 .plantButtonModal { width: 100%; height: 54px; margin-top: 23px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 15px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 850; cursor: pointer; }
 
-@keyframes growth-release { 0% { transform: translateX(-50%) scale(var(--plant-previous-scale)); } 60% { transform: translateX(-50%) translateY(-5px) scale(calc(var(--plant-scale) * 1.045)); } 100% { transform: translateX(-50%) scale(var(--plant-scale)); } }
+@keyframes stem-extend { from { stroke-dashoffset: calc(1 - var(--part-previous)); } to { stroke-dashoffset: calc(1 - var(--part)); } }
+@keyframes botanical-unfurl { 0% { opacity: var(--part-previous); transform: scale(var(--part-previous)) rotate(-7deg); } 68% { opacity: var(--part); transform: scale(calc(var(--part) * 1.06)) rotate(1deg); } 100% { opacity: var(--part); transform: scale(var(--part)); } }
 @keyframes fertilizer-bloom { 0% { opacity: 0; transform: translate(-50%, 18px) scale(.45); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70px) scale(1.45) rotate(18deg); } }
 @keyframes hearts-float { 0% { opacity: 0; transform: translate(-50%, 18px) scale(.5); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -75px) scale(1.2); } }
 @keyframes growth-pop { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.3) rotate(-20deg); } 32% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -55px) scale(1.5) rotate(15deg); } }
@@ -189,8 +202,11 @@
   .nav a:first-child,.nav > span { display: none; }
   .hero { grid-template-columns: 1fr 1fr; gap: 30px; }
   .hero h1 { font-size: 58px; }
-  .speech { width: 180px; }
+  .featured { padding-inline: 23px; }
+  .featuredInteraction { grid-template-columns: minmax(0,1fr) minmax(175px,.86fr); gap: 11px; }
+  .speech { width: 100%; }
   .ritual { grid-template-columns: 1fr 1fr; }
+  .ritualIntro { grid-column: 1 / -1; }
   .plantGrid { grid-template-columns: repeat(2,1fr); }
 }
 
@@ -205,11 +221,14 @@
   .heroStats { margin-top: 28px; gap: 17px; }
   .heroStats div { padding-right: 16px; }
   .heroStats strong { font-size: 24px; }
-  .featured { min-height: 560px; padding: 25px 18px 22px; }
+  .featured { min-height: 0; padding: 25px 18px 22px; }
   .featured h2 { font-size: 21px; }
-  .speech { top: 71px; right: 11px; width: 178px; }
-  .plantButton { height: 350px; margin-top: 16px; }
-  .tapHint { max-width: 88%; overflow: hidden; text-overflow: ellipsis; }
+  .featuredInteraction { min-height: 0; grid-template-columns: 1fr; }
+  .plantViewport { min-height: 350px; }
+  .plantViewport > .plantArt { height: 340px; }
+  .growthNow { max-width: 94%; white-space: normal; }
+  .growthControl { padding: 15px; }
+  .speech { width: 100%; }
   .featuredFooter strong { text-align: right; }
   .ritual { padding: 13px; grid-template-columns: 1fr; }
   .ritualIntro { padding: 8px 7px 12px; }
