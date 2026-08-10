@@ -22,6 +22,7 @@ function plant(overrides: Partial<LivingPlantHabit> = {}): LivingPlantHabit {
     frequency: "daily",
     reminder: "18:30",
     createdAt: "2026-08-10T10:00:00.000Z",
+    completedAt: null,
     updatedAt: "2026-08-10T10:00:00.000Z",
     ...overrides,
   };
@@ -76,4 +77,26 @@ test("sanitizes purchase prices and restores decorations", () => {
   assert.ok(restored);
   assert.equal(restored.purchases[0].price, 75);
   assert.equal(livingDecorations(restored).walk, "stones");
+});
+
+test("restores a completion date for an older finished plant", () => {
+  const restored = sanitizeLivingGardenSnapshot({
+    version: 1,
+    plants: [{ ...plant({ baseCompletedDays: 29 }), completionDates: ["2026-08-30"], completedAt: undefined }],
+    claimedAchievements: [],
+    purchases: [],
+  });
+
+  assert.ok(restored);
+  assert.equal(restored.plants[0].completedAt, "2026-08-30T00:00:00.000Z");
+});
+
+test("keeps a finished plant and its earliest completion date when devices merge", () => {
+  const computer = snapshot([plant({ baseCompletedDays: 29, completionDates: ["2026-08-30"], completedAt: "2026-08-30T18:00:00.000Z" })]);
+  const phone = snapshot([plant({ baseCompletedDays: 29, completionDates: ["2026-08-30"], completedAt: "2026-08-30T18:05:00.000Z", updatedAt: "2026-08-30T18:05:00.000Z" })]);
+  const merged = mergeLivingGardenSnapshots(computer, phone);
+
+  assert.equal(completedDaysFor(merged.plants[0]), 30);
+  assert.equal(merged.plants[0].completedAt, "2026-08-30T18:00:00.000Z");
+  assert.equal(livingGardenPoints(merged), 190);
 });

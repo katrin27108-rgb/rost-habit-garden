@@ -1,5 +1,6 @@
 export const LIVING_GARDEN_STORAGE_KEY = "rost-living-garden-v1";
 export const LIVING_GARDEN_VERSION = 1;
+export const LIVING_COMPLETION_REWARD = 60;
 
 export type LivingSpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera" | "oak" | "apple" | "peony" | "sakura";
 export type LivingFrequency = "daily" | "weekly" | "threeWeekly";
@@ -14,6 +15,7 @@ export type LivingPlantHabit = {
   frequency: LivingFrequency;
   reminder: string | null;
   createdAt: string;
+  completedAt: string | null;
   updatedAt: string;
 };
 
@@ -80,7 +82,15 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
     : completionDates[0]
       ? `${completionDates[0]}T00:00:00.000Z`
       : updatedAt;
-  return { id, habit, species, baseCompletedDays, completionDates, frequency, reminder, createdAt, updatedAt };
+  const isCompleted = baseCompletedDays + completionDates.length >= 30;
+  const completedAt = isCompleted
+    ? input.completedAt
+      ? cleanIso(input.completedAt)
+      : completionDates.at(-1)
+        ? `${completionDates.at(-1)}T00:00:00.000Z`
+        : updatedAt
+    : null;
+  return { id, habit, species, baseCompletedDays, completionDates, frequency, reminder, createdAt, completedAt, updatedAt };
 }
 
 function cleanPurchase(value: unknown): LivingPurchase | null {
@@ -124,7 +134,11 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
     const baseCompletedDays = Math.max(existing.baseCompletedDays, plant.baseCompletedDays);
     const completionDates = [...new Set([...existing.completionDates, ...plant.completionDates])].sort().slice(0, Math.max(0, 30 - baseCompletedDays));
     const createdAt = existing.createdAt.localeCompare(plant.createdAt) <= 0 ? existing.createdAt : plant.createdAt;
-    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, createdAt });
+    const completedAtCandidates = [existing.completedAt, plant.completedAt].filter((value): value is string => Boolean(value)).sort();
+    const completedAt = baseCompletedDays + completionDates.length >= 30
+      ? completedAtCandidates[0] ?? (completionDates.at(-1) ? `${completionDates.at(-1)}T00:00:00.000Z` : latest.updatedAt)
+      : null;
+    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, createdAt, completedAt });
   }
 
   const purchases = new Map<string, LivingPurchase>();
@@ -139,9 +153,10 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
 
 export function livingGardenPoints(snapshot: LivingGardenSnapshot) {
   const completionStars = snapshot.plants.reduce((sum, plant) => sum + plant.completionDates.length * 10, 0);
+  const completedPlantStars = snapshot.plants.filter((plant) => completedDaysFor(plant) >= 30).length * LIVING_COMPLETION_REWARD;
   const achievementStars = snapshot.claimedAchievements.reduce((sum, id) => sum + (achievementRewards[id] ?? 0), 0);
   const spentStars = snapshot.purchases.reduce((sum, purchase) => sum + purchase.price, 0);
-  return Math.max(0, 120 + completionStars + achievementStars - spentStars);
+  return Math.max(0, 120 + completionStars + completedPlantStars + achievementStars - spentStars);
 }
 
 export function unlockedLivingSpecies(snapshot: LivingGardenSnapshot): LivingSpeciesCode[] {
