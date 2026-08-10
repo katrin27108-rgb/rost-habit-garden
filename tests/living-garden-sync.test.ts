@@ -21,6 +21,7 @@ function plant(overrides: Partial<LivingPlantHabit> = {}): LivingPlantHabit {
     completionDates: [],
     frequency: "daily",
     reminder: "18:30",
+    createdAt: "2026-08-10T10:00:00.000Z",
     updatedAt: "2026-08-10T10:00:00.000Z",
     ...overrides,
   };

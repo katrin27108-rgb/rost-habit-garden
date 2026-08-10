@@ -20,6 +20,12 @@ import {
   type LivingPurchase,
   type LivingSpeciesCode,
 } from "../../lib/living-garden-sync";
+import {
+  buildMonthlyGardenStatistic,
+  livingMonthKey,
+  livingMonthLabel,
+  moveLivingMonth,
+} from "../../lib/living-garden-statistics";
 import AuthModal from "../AuthModal";
 import styles from "./living-garden.module.css";
 
@@ -61,11 +67,11 @@ const decorations: { code: DecorationCode; name: string; detail: string; price: 
 ];
 
 const initialPlants: PlantHabit[] = [
-  { id: "walk", habit: "Гулять 30 минут", species: "sunflower", baseCompletedDays: 11, completionDates: [], frequency: "daily", reminder: "18:30", updatedAt: INITIAL_UPDATED_AT },
-  { id: "read", habit: "Читать перед сном", species: "lavender", baseCompletedDays: 7, completionDates: [], frequency: "daily", reminder: "21:30", updatedAt: INITIAL_UPDATED_AT },
-  { id: "water", habit: "Пить достаточно воды", species: "monstera", baseCompletedDays: 22, completionDates: [], frequency: "daily", reminder: "09:00", updatedAt: INITIAL_UPDATED_AT },
-  { id: "reflect", habit: "Подводить итоги недели", species: "oak", baseCompletedDays: 15, completionDates: [], frequency: "weekly", reminder: "18:30", updatedAt: INITIAL_UPDATED_AT },
-  { id: "vegetables", habit: "Добавлять овощи в обед", species: "tomato", baseCompletedDays: 19, completionDates: [], frequency: "threeWeekly", reminder: null, updatedAt: INITIAL_UPDATED_AT },
+  { id: "walk", habit: "Гулять 30 минут", species: "sunflower", baseCompletedDays: 11, completionDates: [], frequency: "daily", reminder: "18:30", createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT },
+  { id: "read", habit: "Читать перед сном", species: "lavender", baseCompletedDays: 7, completionDates: [], frequency: "daily", reminder: "21:30", createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT },
+  { id: "water", habit: "Пить достаточно воды", species: "monstera", baseCompletedDays: 22, completionDates: [], frequency: "daily", reminder: "09:00", createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT },
+  { id: "reflect", habit: "Подводить итоги недели", species: "oak", baseCompletedDays: 15, completionDates: [], frequency: "weekly", reminder: "18:30", createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT },
+  { id: "vegetables", habit: "Добавлять овощи в обед", species: "tomato", baseCompletedDays: 19, completionDates: [], frequency: "threeWeekly", reminder: null, createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT },
 ];
 
 const initialSnapshot: LivingGardenSnapshot = { version: LIVING_GARDEN_VERSION, plants: initialPlants, claimedAchievements: [], purchases: [] };
@@ -153,6 +159,13 @@ const praiseMessages = [
 
 const dailyQuote = "Не нужно менять всю жизнь за один день. Достаточно одного доброго действия, которое ты повторишь сегодня.";
 
+function monthlySupportMessage(totalCompleted: number, rate: number) {
+  if (totalCompleted === 0) return "Этот месяц пока как чистая грядка. Первая отметка уже будет настоящим началом.";
+  if (rate >= 80) return "В этом месяце у сада был очень устойчивый ритм. Ты много раз выбирала то, что для тебя важно.";
+  if (rate >= 50) return "Ритм был живым: где-то уверенным, где-то с паузами. Сделанное всё равно осталось с тобой.";
+  return "Даже неровный месяц состоит из настоящих шагов. Здесь хорошо видно всё, что у тебя уже получилось.";
+}
+
 function getSpecies(code: SpeciesCode) {
   return species.find((item) => item.code === code) ?? species[0];
 }
@@ -217,12 +230,17 @@ export default function LivingPlantsPrototype() {
   const [newSpecies, setNewSpecies] = useState<SpeciesCode>("apple");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newReminder, setNewReminder] = useState<string | null>("09:00");
+  const [activeView, setActiveView] = useState<"garden" | "statistics">("garden");
+  const [statisticsMonth, setStatisticsMonth] = useState(() => livingMonthKey());
 
   const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases }), [claimedAchievements, plants, purchases]);
   const points = livingGardenPoints(snapshot);
   const unlockedSpecies = unlockedLivingSpecies(snapshot);
   const decorationsByPlant = livingDecorations(snapshot);
   const today = livingDateKey();
+  const currentMonth = livingMonthKey();
+  const monthlyStatistics = useMemo(() => buildMonthlyGardenStatistic(plants, statisticsMonth, today), [plants, statisticsMonth, today]);
+  const maximumWeeklyActions = Math.max(1, ...monthlyStatistics.weeks.map((week) => week.completed));
   const selected = plants.find((plant) => plant.id === selectedId) ?? plants[0];
   const selectedSpecies = getSpecies(selected.species);
   const selectedFrame = frameFor(selected);
@@ -408,6 +426,7 @@ export default function LivingPlantsPrototype() {
       completionDates: [],
       frequency: newFrequency,
       reminder: newReminder,
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     setPlants((current) => [...current, plant]);
@@ -443,6 +462,12 @@ export default function LivingPlantsPrototype() {
         </nav>
       </header>
 
+      <nav className={styles.viewTabs} aria-label="Разделы сада" role="tablist">
+        <button type="button" role="tab" aria-selected={activeView === "garden"} className={activeView === "garden" ? styles.activeViewTab : ""} onClick={() => setActiveView("garden")}><span>❧</span> Мой сад</button>
+        <button type="button" role="tab" aria-selected={activeView === "statistics"} className={activeView === "statistics" ? styles.activeViewTab : ""} onClick={() => setActiveView("statistics")}><span>◫</span> Статистика</button>
+      </nav>
+
+      {activeView === "garden" ? <>
       <section className={styles.workspace} aria-label="Мой сад сегодня">
         <aside className={styles.habitsPanel}>
           <div className={styles.panelHeading}>
@@ -579,12 +604,94 @@ export default function LivingPlantsPrototype() {
         <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>ЛАВКА РЕДКОСТЕЙ</span><h2>Открывай растения за звёзды</h2></div><p>Обычные виды доступны сразу. Редкие пион и сакура открываются навсегда — и тоже растут через 30 настоящих стадий.</p></div>
         <div className={styles.catalogGrid}>
           {species.map((item) => {
-            const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], frequency: "daily", reminder: null, updatedAt: INITIAL_UPDATED_AT };
+            const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], frequency: "daily", reminder: null, createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT };
             const unlocked = unlockedSpecies.includes(item.code);
             return <button key={item.code} className={!unlocked ? styles.lockedSpecies : ""} onClick={() => unlockPlant(item)} disabled={!unlocked && points < (item.unlockPrice ?? 0)} style={{ "--accent": item.accent } as CSSProperties}><PlantArt plant={preview} /><span><small>{item.family}</small><b>{item.name}</b><em>{unlocked ? item.character : `Открыть навсегда · ${item.unlockPrice} ✦`}</em></span>{!unlocked && <i className={styles.lockBadge}>редкое</i>}</button>;
           })}
         </div>
       </section>
+      </> : (
+        <section className={styles.statisticsSection} role="tabpanel" aria-label="Статистика сада за месяц">
+          <div className={styles.statisticsHero}>
+            <div>
+              <span className={styles.eyebrow}>КАРТИНА МЕСЯЦА</span>
+              <h1>Посмотрим, как ты росла</h1>
+              <p>Здесь есть и выполненные дни, и паузы. Ничего не пропадает: каждый сделанный шаг остаётся частью общей картины.</p>
+            </div>
+            <div className={styles.monthPicker} aria-label="Выбрать месяц">
+              <button type="button" onClick={() => setStatisticsMonth((month) => moveLivingMonth(month, -1))} aria-label="Предыдущий месяц">←</button>
+              <strong>{livingMonthLabel(statisticsMonth)}</strong>
+              <button type="button" onClick={() => setStatisticsMonth((month) => moveLivingMonth(month, 1))} disabled={statisticsMonth >= currentMonth} aria-label="Следующий месяц">→</button>
+            </div>
+          </div>
+
+          <blockquote className={styles.monthlySummary}>
+            <span>“</span>
+            <p>{monthlySupportMessage(monthlyStatistics.totalCompleted, monthlyStatistics.rate)}</p>
+          </blockquote>
+
+          <div className={styles.statCards}>
+            <article><span>Выполнено</span><b>{monthlyStatistics.totalCompleted}</b><small>подтверждённых действий</small></article>
+            <article><span>Дни с заботой</span><b>{monthlyStatistics.activeDays}</b><small>из {monthlyStatistics.elapsedDays || monthlyStatistics.daysInMonth} прошедших дней</small></article>
+            <article><span>Общий ритм</span><b>{monthlyStatistics.rate}%</b><small>от выбранного расписания</small></article>
+            <article className={styles.gentleMissed}><span>Без отметки</span><b>{monthlyStatistics.missed}</b><small>это не отменяет сделанное</small></article>
+          </div>
+
+          <div className={styles.statisticsGrid}>
+            <article className={styles.calendarCard}>
+              <div className={styles.statCardHeading}><div><span className={styles.eyebrow}>КАЛЕНДАРЬ</span><h2>{livingMonthLabel(statisticsMonth)}</h2></div><small>цифра в кружке — сколько привычек выполнено</small></div>
+              <div className={styles.weekdayRow} aria-hidden="true">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div>
+              <div className={styles.monthCalendar}>
+                {Array.from({ length: monthlyStatistics.calendarOffset }, (_, index) => <span className={styles.emptyCalendarDay} key={`empty-${index}`} />)}
+                {monthlyStatistics.days.map((day) => (
+                  <span
+                    key={day.dateKey}
+                    className={`${styles.statDay} ${day.completed ? styles.statDayDone : ""} ${day.isFuture ? styles.statDayFuture : ""} ${day.isToday ? styles.statDayToday : ""}`}
+                    aria-label={`${day.day}: ${day.completed ? `${day.completed} выполнено` : day.isFuture ? "ещё впереди" : "без отметок"}`}
+                  >
+                    <b>{day.day}</b>
+                    {day.completed > 0 ? <strong>{day.completed}</strong> : <i>{day.isFuture ? "" : "—"}</i>}
+                  </span>
+                ))}
+              </div>
+              <div className={styles.calendarLegend}><span><i className={styles.legendDone} />были действия</span><span><i />день без отметки</span><span><i className={styles.legendFuture} />ещё впереди</span></div>
+            </article>
+
+            <article className={styles.weekRhythmCard}>
+              <div className={styles.statCardHeading}><div><span className={styles.eyebrow}>ПО НЕДЕЛЯМ</span><h2>Как менялся ритм</h2></div></div>
+              <div className={styles.weekBars}>
+                {monthlyStatistics.weeks.map((week) => (
+                  <div key={week.label}><span>{week.label}</span><i><b style={{ height: `${Math.max(4, week.completed / maximumWeeklyActions * 100)}%` }} /></i><strong>{week.completed}</strong></div>
+                ))}
+              </div>
+              <p>Паузы видны, но они не обнуляют предыдущие недели. Можно спокойно продолжить с сегодняшнего дня.</p>
+            </article>
+          </div>
+
+          <section className={styles.habitStatistics}>
+            <div className={styles.statCardHeading}><div><span className={styles.eyebrow}>КАЖДАЯ ПРИВЫЧКА</span><h2>Что получилось за месяц</h2></div><small>по выбранному тобой ритму</small></div>
+            <div className={styles.habitStatList}>
+              {monthlyStatistics.plants.map((item) => {
+                const plant = plants.find((candidate) => candidate.id === item.plantId);
+                if (!plant) return null;
+                const plantSpecies = getSpecies(plant.species);
+                return (
+                  <article key={plant.id} className={styles.habitStatRow} style={{ "--accent": plantSpecies.accent } as CSSProperties}>
+                    <span className={styles.statPlantMark}>{plantSpecies.name.slice(0, 1)}</span>
+                    <div className={styles.statHabitCopy}>
+                      <small>{plantSpecies.name} · {frequencyLabels[plant.frequency]}</small>
+                      <strong>{plant.habit}</strong>
+                      <div className={styles.habitStatBar}><i style={{ width: `${item.rate}%` }} /></div>
+                      <p>{item.target === 0 ? "Растение уже прошло все 30 этапов" : `${item.completed} выполнено · ${item.missed} без отметки · цель ${item.target}`}</p>
+                    </div>
+                    <div className={styles.habitStatResult}><b>{item.completed}</b><span>{item.completed === 1 ? "шаг" : "шагов"}</span><small>{item.rate}%</small></div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </section>
+      )}
 
       <footer className={styles.footer}><span>«Рост» · мой живой сад</span><p>Каждая отметка связана с отдельным физиологическим этапом растения. Поддержка — без давления, прогресс — без наказания.</p><Link href="/">Вернуться на главную</Link></footer>
 
@@ -594,7 +701,7 @@ export default function LivingPlantsPrototype() {
             <button className={styles.modalClose} type="button" onClick={() => setShowPlanting(false)} aria-label="Закрыть">×</button>
             <span className={styles.eyebrow}>НОВАЯ ПРИВЫЧКА</span><h2>Посади ещё одну цель</h2><p>Выбери растение, удобный ритм и напоминание. Каждый выполненный шаг откроет один из 30 этапов.</p>
             <label className={styles.habitInput}><span>Моя привычка</span><input value={newHabit} onChange={(event) => setNewHabit(event.target.value)} autoFocus /></label>
-            <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.filter((item) => unlockedSpecies.includes(item.code)).map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], frequency: "daily", reminder: null, updatedAt: INITIAL_UPDATED_AT }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
+            <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.filter((item) => unlockedSpecies.includes(item.code)).map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], frequency: "daily", reminder: null, createdAt: INITIAL_UPDATED_AT, updatedAt: INITIAL_UPDATED_AT }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
             <fieldset><legend>Как часто</legend><div className={styles.choiceGrid}>{(Object.keys(frequencyLabels) as Frequency[]).map((frequency) => <button type="button" key={frequency} className={newFrequency === frequency ? styles.selectedChoice : ""} onClick={() => setNewFrequency(frequency)}>{frequencyLabels[frequency]}</button>)}</div></fieldset>
             <fieldset><legend>Напоминание</legend><div className={styles.choiceGrid}>{([null, "09:00", "18:30", "21:30"] as const).map((time) => <button type="button" key={time ?? "off"} className={newReminder === time ? styles.selectedChoice : ""} onClick={() => setNewReminder(time)}>{time ? `В ${time}` : "Не напоминать"}</button>)}</div></fieldset>
             <button className={styles.plantButtonModal} type="submit"><span>Посадить семечко</span><b>→</b></button>

@@ -13,6 +13,7 @@ export type LivingPlantHabit = {
   completionDates: string[];
   frequency: LivingFrequency;
   reminder: string | null;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -73,7 +74,13 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
     ? [...new Set(input.completionDates.map(cleanDate).filter((date): date is string => Boolean(date)))].sort().slice(0, Math.max(0, 30 - baseCompletedDays))
     : [];
   const reminder = input.reminder === null ? null : cleanText(input.reminder, 5) || null;
-  return { id, habit, species, baseCompletedDays, completionDates, frequency, reminder, updatedAt: cleanIso(input.updatedAt) };
+  const updatedAt = cleanIso(input.updatedAt);
+  const createdAt = input.createdAt
+    ? cleanIso(input.createdAt)
+    : completionDates[0]
+      ? `${completionDates[0]}T00:00:00.000Z`
+      : updatedAt;
+  return { id, habit, species, baseCompletedDays, completionDates, frequency, reminder, createdAt, updatedAt };
 }
 
 function cleanPurchase(value: unknown): LivingPurchase | null {
@@ -116,7 +123,8 @@ export function mergeLivingGardenSnapshots(left: LivingGardenSnapshot, right: Li
     const latest = existing.updatedAt.localeCompare(plant.updatedAt) <= 0 ? plant : existing;
     const baseCompletedDays = Math.max(existing.baseCompletedDays, plant.baseCompletedDays);
     const completionDates = [...new Set([...existing.completionDates, ...plant.completionDates])].sort().slice(0, Math.max(0, 30 - baseCompletedDays));
-    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates });
+    const createdAt = existing.createdAt.localeCompare(plant.createdAt) <= 0 ? existing.createdAt : plant.createdAt;
+    plants.set(plant.id, { ...latest, baseCompletedDays, completionDates, createdAt });
   }
 
   const purchases = new Map<string, LivingPurchase>();

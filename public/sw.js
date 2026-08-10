@@ -1,4 +1,4 @@
-const CACHE = "rost-shell-v6-account-sync";
+const CACHE = "rost-shell-v7-monthly-statistics";
 const APP_ROOT = new URL("./", self.location.href).pathname;
 
 self.addEventListener("install", () => self.skipWaiting());

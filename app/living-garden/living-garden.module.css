@@ -20,7 +20,7 @@
 .ambient i:nth-child(2) { right: 4%; top: 42%; background: #b2735e; }
 .ambient i:nth-child(3) { left: 8%; bottom: 14%; background: #758b5d; }
 
-.header,.workspace,.gardenSection,.supportGrid,.catalogSection,.footer { position: relative; z-index: 1; width: min(100% - 44px,1440px); margin-inline: auto; }
+.header,.viewTabs,.workspace,.gardenSection,.supportGrid,.catalogSection,.statisticsSection,.footer { position: relative; z-index: 1; width: min(100% - 44px,1440px); margin-inline: auto; }
 .header { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 28px; border-bottom: 1px solid rgba(37,70,56,.12); }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
 .brandMark { width: 42px; height: 46px; display: grid; place-items: center; border-radius: 18px 18px 18px 5px; background: var(--ink); color: #e9cf82; font: 700 24px/1 Georgia,serif; transform: rotate(-3deg); }
@@ -40,6 +40,11 @@
 .pointsBadge b { color: var(--ink); }
 .backLink { padding: 11px 15px; border: 1px solid rgba(47,82,69,.15); border-radius: 100px; background: rgba(255,255,255,.48); }
 .eyebrow { color: #758878; font-size: 11px; font-weight: 850; letter-spacing: .14em; }
+.viewTabs { margin-top: 18px; padding: 5px; display: flex; gap: 5px; border: 1px solid rgba(45,78,63,.12); border-radius: 17px; background: rgba(255,253,248,.58); }
+.viewTabs button { min-width: 145px; min-height: 42px; padding: 0 16px; border: 0; border-radius: 12px; background: transparent; color: #687970; font-size: 12px; font-weight: 800; cursor: pointer; transition: background .2s ease,color .2s ease,box-shadow .2s ease; }
+.viewTabs button span { margin-right: 7px; color: #80946f; }
+.viewTabs button.activeViewTab { background: #214d3f; color: #fffaf0; box-shadow: 0 7px 18px rgba(33,77,63,.16); }
+.viewTabs button.activeViewTab span { color: #e8cf7d; }
 
 .workspace { padding: 38px 0 48px; display: grid; grid-template-columns: minmax(340px,.78fr) minmax(560px,1.22fr); gap: 22px; align-items: stretch; }
 .habitsPanel,.plantStage { border: 1px solid rgba(44,76,61,.12); border-radius: 30px; background: rgba(251,248,240,.88); box-shadow: 0 28px 75px rgba(47,64,51,.09); }
@@ -194,6 +199,74 @@
 .lockedSpecies .plantArt { filter:saturate(.78); }
 .lockBadge { position:absolute; top:13px; right:13px; padding:6px 8px; border-radius:100px; background:#244d40; color:#fff9ed; font-size:10px; font-style:normal; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 
+.statisticsSection { padding: 38px 0 72px; }
+.statisticsHero { display:flex; align-items:flex-end; justify-content:space-between; gap:32px; }
+.statisticsHero h1 { margin:10px 0 12px; font:500 clamp(36px,4.2vw,58px)/.98 Georgia,serif; letter-spacing:-.045em; }
+.statisticsHero p { max-width:670px; margin:0; color:#61736a; font:400 15px/1.6 Georgia,serif; }
+.monthPicker { min-width:300px; padding:7px; display:grid; grid-template-columns:42px 1fr 42px; align-items:center; gap:7px; border:1px solid rgba(46,78,63,.14); border-radius:17px; background:#fffdf8; }
+.monthPicker button { width:42px; height:42px; border:0; border-radius:12px; background:#eef1e7; color:#58705e; font-size:17px; cursor:pointer; }
+.monthPicker button:disabled { cursor:default; opacity:.28; }
+.monthPicker strong { text-align:center; font:500 16px Georgia,serif; }
+.monthlySummary { margin:28px 0 16px; padding:20px 25px 20px 55px; position:relative; border:1px solid rgba(205,171,83,.23); border-radius:22px 22px 6px 22px; background:linear-gradient(135deg,#fffaf0,#f1f3e7); }
+.monthlySummary span { position:absolute; left:20px; top:6px; color:#c1932c; font:500 42px Georgia,serif; }
+.monthlySummary p { margin:0; color:#405a4d; font:400 17px/1.55 Georgia,serif; }
+.statCards { display:grid; grid-template-columns:repeat(4,1fr); gap:11px; }
+.statCards article { min-height:145px; padding:20px; display:flex; flex-direction:column; border:1px solid rgba(47,79,64,.12); border-radius:22px; background:rgba(255,253,248,.77); }
+.statCards span { color:#718178; font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.statCards b { margin:13px 0 5px; color:#244f40; font:500 42px/1 Georgia,serif; }
+.statCards small { margin-top:auto; color:#697a72; font-size:11px; }
+.statCards .gentleMissed { background:#f4f0e8; }
+.statCards .gentleMissed b { color:#9a7452; }
+.statisticsGrid { margin-top:14px; display:grid; grid-template-columns:1.45fr .55fr; gap:14px; }
+.calendarCard,.weekRhythmCard,.habitStatistics { padding:25px; border:1px solid rgba(47,79,64,.12); border-radius:27px; background:rgba(251,248,240,.82); }
+.statCardHeading { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
+.statCardHeading h2 { margin:8px 0 0; font:500 28px/1.05 Georgia,serif; }
+.statCardHeading > small { max-width:210px; color:#718078; font-size:10px; line-height:1.4; text-align:right; }
+.weekdayRow,.monthCalendar { display:grid; grid-template-columns:repeat(7,1fr); gap:7px; }
+.weekdayRow { margin:22px 0 7px; }
+.weekdayRow span { color:#7a8780; font-size:9px; font-weight:800; text-align:center; text-transform:uppercase; }
+.monthCalendar { align-items:stretch; }
+.statDay,.emptyCalendarDay { aspect-ratio:1; }
+.statDay { min-width:0; padding:7px; position:relative; display:flex; flex-direction:column; justify-content:space-between; border:1px solid #dcded6; border-radius:14px; background:#fffdf8; color:#687970; }
+.statDay > b { font:500 12px Georgia,serif; }
+.statDay > strong,.statDay > i { align-self:flex-end; width:22px; height:22px; display:grid; place-items:center; border-radius:50%; font-size:9px; font-style:normal; }
+.statDay > i { color:#a6aea8; }
+.statDayDone { border-color:#a9bea0; background:linear-gradient(145deg,#eef4e8,#e3eddc); color:#315944; }
+.statDayDone > strong { background:#4f7c5d; color:white; }
+.statDayFuture { border-style:dashed; background:rgba(255,255,255,.28); opacity:.45; }
+.statDayToday { box-shadow:0 0 0 3px rgba(210,168,52,.18); border-color:#d4ad42; }
+.calendarLegend { margin-top:17px; display:flex; flex-wrap:wrap; gap:17px; color:#687970; font-size:10px; }
+.calendarLegend span { display:flex; align-items:center; gap:6px; }
+.calendarLegend i { width:11px; height:11px; border:1px solid #d6dad1; border-radius:4px; background:#fffdf8; }
+.calendarLegend i.legendDone { border-color:#9db396; background:#dfead8; }
+.calendarLegend i.legendFuture { border-style:dashed; opacity:.5; }
+.weekRhythmCard { display:flex; flex-direction:column; background:#214b3e; color:#fffaf0; }
+.weekRhythmCard .eyebrow { color:#b5c8b4; }
+.weekRhythmCard .statCardHeading h2 { color:#fffaf0; }
+.weekBars { min-height:230px; margin:25px 0 20px; display:flex; align-items:stretch; justify-content:center; gap:10px; }
+.weekBars > div { flex:1; display:grid; grid-template-rows:18px 1fr 20px; gap:7px; text-align:center; }
+.weekBars span { color:#aebfb7; font-size:9px; }
+.weekBars i { min-height:150px; position:relative; display:flex; align-items:flex-end; overflow:hidden; border-radius:10px 10px 4px 4px; background:rgba(255,255,255,.08); }
+.weekBars i b { width:100%; display:block; border-radius:9px 9px 3px 3px; background:linear-gradient(#efd77d,#b8c68d); transition:height .3s ease; }
+.weekBars strong { color:#eed780; font-size:11px; }
+.weekRhythmCard > p { margin:auto 0 0; color:#c4d0cb; font:400 12px/1.55 Georgia,serif; }
+.habitStatistics { margin-top:14px; }
+.habitStatList { margin-top:20px; display:grid; gap:9px; }
+.habitStatRow { --accent:#758b60; min-height:104px; padding:14px 16px; display:grid; grid-template-columns:48px 1fr 80px; align-items:center; gap:15px; border:1px solid #dfe2d8; border-radius:18px; background:#fffdf8; }
+.statPlantMark { width:48px; height:48px; display:grid; place-items:center; border-radius:18px 18px 18px 5px; background:color-mix(in srgb,var(--accent) 18%,#f7f4ec); color:var(--accent); font:600 22px Georgia,serif; }
+.statHabitCopy { min-width:0; }
+.statHabitCopy > small,.statHabitCopy > strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.statHabitCopy > small { color:var(--accent); font-size:10px; font-weight:850; text-transform:uppercase; }
+.statHabitCopy > strong { margin-top:5px; font:500 17px Georgia,serif; }
+.statHabitCopy p { margin:7px 0 0; color:#687970; font-size:10px; }
+.habitStatBar { height:6px; margin-top:10px; overflow:hidden; border-radius:10px; background:#e5e7df; }
+.habitStatBar i { height:100%; display:block; border-radius:inherit; background:var(--accent); }
+.habitStatResult { text-align:center; }
+.habitStatResult b,.habitStatResult span,.habitStatResult small { display:block; }
+.habitStatResult b { color:var(--accent); font:500 29px/1 Georgia,serif; }
+.habitStatResult span { margin-top:3px; color:#6d7b74; font-size:10px; }
+.habitStatResult small { margin-top:6px; color:#8a958f; font-size:9px; }
+
 .footer { min-height: 98px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 45px; border-top: 1px solid rgba(47,82,69,.13); color: #65776d; font-size: 10px; }
 .footer > span { color: var(--ink); font-weight: 800; }
 .footer p { max-width: 650px; margin: 0 auto; text-align: center; line-height: 1.55; }
@@ -247,7 +320,7 @@
 }
 
 @media (max-width: 860px) {
-  .header,.workspace,.gardenSection,.supportGrid,.catalogSection,.footer { width:min(100% - 24px,1440px); }
+  .header,.viewTabs,.workspace,.gardenSection,.supportGrid,.catalogSection,.statisticsSection,.footer { width:min(100% - 24px,1440px); }
   .header { padding: 12px 0; }
   .nav { justify-content:flex-end; gap:9px; }
   .backLink { display:none; }
@@ -258,6 +331,10 @@
   .addHabit { margin-top:16px; }
   .supportGrid { grid-template-columns:1fr; }
   .achievementGrid { grid-template-columns:1fr 1fr; }
+  .statisticsHero { align-items:flex-start; flex-direction:column; }
+  .monthPicker { width:100%; }
+  .statCards { grid-template-columns:1fr 1fr; }
+  .statisticsGrid { grid-template-columns:1fr; }
   .footer { padding:24px 0; display:flex; flex-direction:column; gap:12px; text-align:center; }
 }
 
@@ -269,6 +346,8 @@
   .syncButton { padding:8px 10px; }
   .accountBadge { max-width:230px; }
   .accountBadge > span { max-width:125px; }
+  .viewTabs { margin-top:12px; }
+  .viewTabs button { min-width:0; flex:1; padding:0 8px; }
   .workspace { padding-top:22px; }
   .habitsPanel,.plantStage { padding:20px 16px; border-radius:23px; }
   .habitList { grid-template-columns:1fr; }
@@ -287,6 +366,27 @@
   .shelfPlant > .plantArt { height:180px; }
   .careDockActions,.decorationPicker { grid-template-columns:1fr; }
   .achievementGrid { grid-template-columns:1fr; }
+  .statisticsSection { padding-top:27px; }
+  .statisticsHero h1 { font-size:38px; }
+  .statisticsHero p { font-size:14px; }
+  .monthlySummary { padding:18px 17px 18px 43px; }
+  .monthlySummary span { left:13px; }
+  .monthlySummary p { font-size:15px; }
+  .statCards { gap:8px; }
+  .statCards article { min-height:130px; padding:15px; }
+  .statCards b { font-size:35px; }
+  .calendarCard,.weekRhythmCard,.habitStatistics { padding:19px 14px; border-radius:22px; }
+  .statCardHeading { align-items:flex-start; flex-direction:column; gap:7px; }
+  .statCardHeading > small { text-align:left; }
+  .weekdayRow,.monthCalendar { gap:4px; }
+  .statDay { padding:5px; border-radius:10px; }
+  .statDay > strong,.statDay > i { width:18px; height:18px; }
+  .calendarLegend { gap:10px; }
+  .habitStatRow { padding:12px; grid-template-columns:40px 1fr 54px; gap:10px; }
+  .statPlantMark { width:40px; height:40px; border-radius:14px 14px 14px 4px; font-size:18px; }
+  .statHabitCopy > strong { font-size:15px; }
+  .statHabitCopy p { line-height:1.35; }
+  .habitStatResult b { font-size:25px; }
   .catalogSection { padding-top:45px; }
   .catalogGrid > button { min-height:230px; }
   .speciesGrid { grid-template-columns:repeat(2,1fr); }
