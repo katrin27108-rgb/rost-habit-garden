@@ -6,19 +6,26 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 GROWTH = ROOT / "public" / "plants" / "growth"
-SPECIES = ("sunflower", "tomato", "lavender", "monstera")
-ALPHA_THRESHOLD = 24
-MIN_COMPONENT_PIXELS = 40
+SOURCES = ROOT / "assets" / "plants-growth-sources"
+SPECIES = ("sunflower", "tomato", "lavender", "monstera", "oak", "apple")
+GRID_COLUMNS = 5
+GRID_ROWS = 6
+FRAME_COUNT = GRID_COLUMNS * GRID_ROWS
 OUTPUT_SIZE = 384
-BOTTOM_MARGIN = 30
+ALPHA_THRESHOLD = 56
+VISIBLE_ALPHA = 220
+MIN_COMPONENT_PIXELS = 24
+SAFE_EDGE = 5
+REGION_SCALE = 1.6
 
 
 def component_masks(source: Image.Image) -> list[Image.Image]:
+    """Assign every connected foreground component to its nearest atlas cell."""
     width, height = source.size
     alpha = source.getchannel("A")
     alpha_pixels = alpha.load()
     visited = bytearray(width * height)
-    masks = [Image.new("L", source.size, 0) for _ in range(16)]
+    masks = [Image.new("L", source.size, 0) for _ in range(FRAME_COUNT)]
     mask_pixels = [mask.load() for mask in masks]
 
     for y in range(height):
@@ -54,38 +61,64 @@ def component_masks(source: Image.Image) -> list[Image.Image]:
 
             center_x = (min_x + max_x) / 2
             center_y = (min_y + max_y) / 2
-            column = min(3, max(0, int(center_x * 4 / width)))
-            row = min(3, max(0, int(center_y * 4 / height)))
-            destination = mask_pixels[row * 4 + column]
+            column = min(GRID_COLUMNS - 1, max(0, int(center_x * GRID_COLUMNS / width)))
+            row = min(GRID_ROWS - 1, max(0, int(center_y * GRID_ROWS / height)))
+            destination = mask_pixels[row * GRID_COLUMNS + column]
             for pixel_x, pixel_y in component:
                 destination[pixel_x, pixel_y] = alpha_pixels[pixel_x, pixel_y]
 
     return masks
 
 
+def fixed_region(source: Image.Image, column: int, row: int) -> Image.Image:
+    """Crop a padded, fixed-size region while preserving relative stage scale."""
+    cell_width = source.width / GRID_COLUMNS
+    cell_height = source.height / GRID_ROWS
+    region_size = round(max(cell_width, cell_height) * REGION_SCALE)
+    center_x = (column + 0.5) * cell_width
+    center_y = (row + 0.5) * cell_height
+    left = round(center_x - region_size / 2)
+    top = round(center_y - region_size / 2)
+
+    region = Image.new("RGBA", (region_size, region_size), (0, 0, 0, 0))
+    source_left = max(0, left)
+    source_top = max(0, top)
+    source_right = min(source.width, left + region_size)
+    source_bottom = min(source.height, top + region_size)
+    if source_right > source_left and source_bottom > source_top:
+        crop = source.crop((source_left, source_top, source_right, source_bottom))
+        region.alpha_composite(crop, (source_left - left, source_top - top))
+    return region
+
+
+def ensure_safe_frame(frame: Image.Image, species: str, index: int) -> None:
+    alpha = frame.getchannel("A").point(lambda value: 255 if value >= VISIBLE_ALPHA else 0)
+    bounds = alpha.getbbox()
+    if bounds is None:
+        raise ValueError(f"No visible plant found for {species} frame {index}")
+
+    left, top, right, bottom = bounds
+    if left < SAFE_EDGE or top < SAFE_EDGE or right > OUTPUT_SIZE - SAFE_EDGE or bottom > OUTPUT_SIZE - SAFE_EDGE:
+        raise ValueError(
+            f"Unsafe crop for {species} frame {index}: {bounds}; "
+            f"expected at least {SAFE_EDGE}px transparent padding"
+        )
+
+
 for species in SPECIES:
-    source_path = GROWTH / f"{species}-growth.png"
+    source_path = SOURCES / f"{species}-growth-30-alpha.png"
     source = Image.open(source_path).convert("RGBA")
     masks = component_masks(source)
     output_dir = GROWTH / species
     output_dir.mkdir(exist_ok=True)
 
-    for frame, mask in enumerate(masks):
+    for index, mask in enumerate(masks):
         isolated = Image.new("RGBA", source.size, (0, 0, 0, 0))
         isolated.paste(source, mask=mask)
-        bounds = isolated.getbbox()
-        if bounds is None:
-            raise ValueError(f"No visible plant found for {species} frame {frame}")
+        row, column = divmod(index, GRID_COLUMNS)
+        region = fixed_region(isolated, column, row)
+        frame = region.resize((OUTPUT_SIZE, OUTPUT_SIZE), Image.Resampling.LANCZOS)
+        ensure_safe_frame(frame, species, index)
+        frame.save(output_dir / f"{index:02d}.png", optimize=True)
 
-        subject = isolated.crop(bounds)
-        target_extent = 270 + frame * 4
-        scale = min(target_extent / subject.width, target_extent / subject.height)
-        subject = subject.resize(
-            (max(1, round(subject.width * scale)), max(1, round(subject.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-        frame_image = Image.new("RGBA", (OUTPUT_SIZE, OUTPUT_SIZE), (0, 0, 0, 0))
-        frame_image.alpha_composite(subject, ((OUTPUT_SIZE - subject.width) // 2, OUTPUT_SIZE - BOTTOM_MARGIN - subject.height))
-        frame_image.save(output_dir / f"{frame:02d}.png", optimize=True)
-
-    print(f"{species}: 16 isolated {OUTPUT_SIZE}x{OUTPUT_SIZE} frames")
+    print(f"{species}: {FRAME_COUNT} isolated {OUTPUT_SIZE}x{OUTPUT_SIZE} frames")
