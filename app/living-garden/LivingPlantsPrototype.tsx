@@ -47,6 +47,16 @@ type Species = {
 
 type PlantHabit = LivingPlantHabit;
 
+type HabitTip = {
+  id: string;
+  marker: string;
+  category: "НАЧАТЬ" | "НЕ ЗАБЫТЬ" | "ПРОДОЛЖИТЬ";
+  title: string;
+  description: string;
+  example: string;
+  takeaway: string;
+};
+
 const TOTAL_STAGES = 30;
 const MAX_GOAL_DAYS = 360;
 const FERTILIZER_PRICE = 25;
@@ -84,6 +94,81 @@ const frequencyLabels: Record<Frequency, string> = {
   weekly: "Раз в неделю",
   threeWeekly: "3 раза в неделю",
 };
+
+const habitTips: HabitTip[] = [
+  {
+    id: "tiny-entry",
+    marker: "01",
+    category: "НАЧАТЬ",
+    title: "Сделай вход, а не всю привычку",
+    description: "В трудный день уменьши действие до версии, на которую почти не нужно уговаривать себя. Цель мини-шага — начать движение, а не доказать силу воли.",
+    example: "Не «гулять 30 минут», а «надеть кроссовки и открыть дверь». Не «прочитать главу», а «открыть книгу и прочитать один абзац».",
+    takeaway: "Минимальная версия тоже считается настоящим возвращением.",
+  },
+  {
+    id: "if-then",
+    marker: "02",
+    category: "НЕ ЗАБЫТЬ",
+    title: "Составь план «если — то»",
+    description: "Заранее свяжи конкретную ситуацию с конкретным действием. Тогда в нужный момент тебе не придётся снова принимать решение.",
+    example: "«Когда поставлю чашку после завтрака, налью воду» или «когда лягу в кровать, прочитаю одну страницу».",
+    takeaway: "Чем точнее сигнал, тем легче узнать момент для действия.",
+  },
+  {
+    id: "stable-cue",
+    marker: "03",
+    category: "НЕ ЗАБЫТЬ",
+    title: "Оставь привычке знакомый якорь",
+    description: "Повторяй действие после одного и того же события или в похожей обстановке: после завтрака, по возвращении домой, у рабочего стола.",
+    example: "Не просто «медитировать каждый день», а «садиться на подушку после того, как закрою ноутбук».",
+    takeaway: "Стабильный контекст постепенно сам начинает напоминать.",
+  },
+  {
+    id: "prepare",
+    marker: "04",
+    category: "НАЧАТЬ",
+    title: "Убери одно препятствие заранее",
+    description: "Сделай полезное действие самым лёгким из доступных: подготовь нужные вещи вечером и положи их туда, где начнётся привычка.",
+    example: "Кроссовки — у двери, бутылка — на столе, книга — на подушке, коврик — уже разложен.",
+    takeaway: "Иногда устойчивость начинается не с мотивации, а с удобства.",
+  },
+  {
+    id: "temptation-bundle",
+    marker: "05",
+    category: "ПРОДОЛЖИТЬ",
+    title: "Соедини полезное с приятным",
+    description: "Добавь к действию небольшое удовольствие, которое доступно именно во время привычки. Так награда перестаёт быть слишком далёкой.",
+    example: "Любимый подкаст — только на прогулке; уютный чай — во время планирования недели; сериал — пока складываешь вещи.",
+    takeaway: "Выбирай сочетание, которое не мешает самому действию.",
+  },
+  {
+    id: "mark-now",
+    marker: "06",
+    category: "ПРОДОЛЖИТЬ",
+    title: "Отмечай шаг сразу",
+    description: "Не откладывай фиксацию на вечер. Видимая отметка помогает заметить реальный прогресс и связывает действие с быстрым чувством завершённости.",
+    example: "Сделала минимальный шаг — сразу поставь галочку и посмотри, как изменилось растение.",
+    takeaway: "Записывай сделанное, а не только идеальные дни.",
+  },
+  {
+    id: "gentle-return",
+    marker: "07",
+    category: "ПРОДОЛЖИТЬ",
+    title: "После пропуска не наверстывай",
+    description: "Один пропуск не стирает сформированную связь. Вместо наказания вернись к обычной или минимальной версии при следующей подходящей возможности.",
+    example: "Не получилось вчера — сегодня не нужно делать двойную прогулку. Достаточно снова надеть кроссовки.",
+    takeaway: "Устойчивость — это способность вернуться, а не неуязвимость.",
+  },
+  {
+    id: "immediate-joy",
+    marker: "08",
+    category: "НАЧАТЬ",
+    title: "Спроси: как сделать это приятнее сейчас?",
+    description: "Далёкая польза помогает выбрать цель, но продолжать часто легче, когда в самом процессе есть комфорт, интерес или удовольствие.",
+    example: "Выбери красивый маршрут, удобный темп, любимую ручку, солнечное место или формат, который тебе действительно нравится.",
+    takeaway: "Хорошая привычка не обязана ощущаться наказанием.",
+  },
+];
 
 const growthDescriptions: Record<SpeciesCode, readonly string[]> = {
   sunflower: [
@@ -245,7 +330,7 @@ export default function LivingPlantsPrototype() {
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newGoalDays, setNewGoalDays] = useState(30);
   const [newReminder, setNewReminder] = useState<string | null>("09:00");
-  const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics">("garden");
+  const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics" | "tips">("garden");
   const [statisticsMonth, setStatisticsMonth] = useState(() => livingMonthKey());
 
   const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases }), [claimedAchievements, plants, purchases]);
@@ -537,6 +622,7 @@ export default function LivingPlantsPrototype() {
         <button type="button" role="tab" aria-selected={activeView === "garden"} className={activeView === "garden" ? styles.activeViewTab : ""} onClick={() => setActiveView("garden")}><span>❧</span> Мой сад</button>
         <button type="button" role="tab" aria-selected={activeView === "successes"} className={activeView === "successes" ? styles.activeViewTab : ""} onClick={() => setActiveView("successes")}><span>♕</span> Сад успехов <b>{completedPlants.length}</b></button>
         <button type="button" role="tab" aria-selected={activeView === "statistics"} className={activeView === "statistics" ? styles.activeViewTab : ""} onClick={() => setActiveView("statistics")}><span>◫</span> Статистика</button>
+        <button type="button" role="tab" aria-selected={activeView === "tips"} className={activeView === "tips" ? styles.activeViewTab : ""} onClick={() => setActiveView("tips")}><span>✦</span> Подсказки</button>
       </nav>
 
       {activeView === "garden" ? <>
@@ -720,7 +806,7 @@ export default function LivingPlantsPrototype() {
             <div className={styles.emptySuccessGarden}><span>❧</span><h2>Первое взрослое растение ещё впереди</h2><p>Когда любая привычка дойдёт до 30-й отметки, здесь появится её растение, дата завершения и сохранённая награда.</p><button type="button" onClick={() => setActiveView("garden")}>Вернуться к растениям</button></div>
           )}
         </section>
-      ) : (
+      ) : activeView === "statistics" ? (
         <section className={styles.statisticsSection} role="tabpanel" aria-label="Статистика сада за месяц">
           <div className={styles.statisticsHero}>
             <div>
@@ -800,6 +886,64 @@ export default function LivingPlantsPrototype() {
               })}
             </div>
           </section>
+        </section>
+      ) : (
+        <section className={styles.tipsSection} role="tabpanel" aria-label="Подсказки для устойчивых привычек">
+          <div className={styles.tipsHero}>
+            <div className={styles.tipsHeroCopy}>
+              <span className={styles.eyebrow}>БЕРЕЖНЫЕ ПРИЁМЫ</span>
+              <h1>Не заставлять себя.<br />Облегчать следующий шаг.</h1>
+              <p>Привычка держится не только на мотивации. Ей помогают маленький вход, знакомый сигнал, удобная среда, быстрая приятность и спокойное возвращение после паузы.</p>
+              <div className={styles.tipPrinciples} aria-label="Главные принципы">
+                <span>меньше усилий</span><span>яснее сигнал</span><span>мягче возвращение</span>
+              </div>
+            </div>
+
+            <article className={styles.sneakerLadder}>
+              <div className={styles.ladderHeading}><span>СЕГОДНЯ СОВСЕМ НЕ ХОЧЕТСЯ?</span><b>Лестница одного шага</b></div>
+              <ol>
+                <li><span>1</span><p><b>Просто надень кроссовки</b><small>На этом уже можно остановиться.</small></p></li>
+                <li><span>2</span><p><b>Подойди к двери</b><small>Никакой прогулки пока не обещаем.</small></p></li>
+                <li><span>3</span><p><b>Выйди на лестницу</b><small>Постой там одну минуту.</small></p></li>
+                <li><span>4</span><p><b>Выйди на улицу</b><small>Сделай десять спокойных шагов.</small></p></li>
+                <li><span>5</span><p><b>Реши заново</b><small>Продолжить ещё немного или вернуться — оба решения нормальны.</small></p></li>
+              </ol>
+              <p className={styles.ladderPermission}><span>✓</span><b>Смысл не в том, чтобы себя обмануть.</b> Смысл — сделать начало достаточно лёгким и оставить себе настоящий выбор.</p>
+            </article>
+          </div>
+
+          <div className={styles.tipsHeading}>
+            <div><span className={styles.eyebrow}>МАЛЕНЬКИЕ ХИТРОСТИ</span><h2>Выбери одну, а не все сразу</h2></div>
+            <p>Попробуй один приём несколько дней и посмотри, стало ли начинать легче. Если нет — это не твоя вина, просто нужен другой ключ.</p>
+          </div>
+
+          <div className={styles.tipsGrid}>
+            {habitTips.map((tip) => (
+              <article key={tip.id} className={styles.tipCard}>
+                <div className={styles.tipCardTop}><span>{tip.marker}</span><small>{tip.category}</small></div>
+                <h2>{tip.title}</h2>
+                <p>{tip.description}</p>
+                <blockquote><span>НАПРИМЕР</span><p>{tip.example}</p></blockquote>
+                <strong><span>→</span>{tip.takeaway}</strong>
+              </article>
+            ))}
+          </div>
+
+          <section className={styles.personalTip}>
+            <div><span className={styles.eyebrow}>ДЛЯ ТВОЕГО САДА</span><h2>Уменьши только вход в «{selected.habit}»</h2><p>Сама привычка остаётся важной. Сегодня придумай её версию на две минуты или один крошечный шаг — такую, которую можно выполнить даже без настроения.</p></div>
+            <button type="button" onClick={() => { setActiveView("garden"); setMessages((current) => ({ ...current, [selected.id]: `Сегодня можно выполнить минимальную версию «${selected.habit}». Один честный маленький шаг тоже поддерживает связь с привычкой.` })); }}>Вернуться и сделать мини-шаг <span>→</span></button>
+          </section>
+
+          <aside className={styles.tipsResearch}>
+            <div><span>⌁</span><p><b>Почему этим советам можно доверять</b><small>Раздел опирается на исследования формирования привычек и саморегуляции. Это не строгие правила и не гарантия результата — выбирай то, что подходит твоей жизни.</small></p></div>
+            <nav aria-label="Исследования о привычках">
+              <a href="https://pubmed.ncbi.nlm.nih.gov/35756236/" target="_blank" rel="noreferrer">Стабильный контекст ↗</a>
+              <a href="https://pubmed.ncbi.nlm.nih.gov/26479070/" target="_blank" rel="noreferrer">Видимый прогресс ↗</a>
+              <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4381662/" target="_blank" rel="noreferrer">Полезное + приятное ↗</a>
+              <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3505409/" target="_blank" rel="noreferrer">Маленькие действия ↗</a>
+              <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10543633/" target="_blank" rel="noreferrer">Возвращение без самокритики ↗</a>
+            </nav>
+          </aside>
         </section>
       )}
 

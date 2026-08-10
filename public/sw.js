@@ -1,4 +1,4 @@
-const CACHE = "rost-shell-v9-habit-continuation";
+const CACHE = "rost-shell-v10-habit-tips";
 const APP_ROOT = new URL("./", self.location.href).pathname;
 
 self.addEventListener("install", () => self.skipWaiting());

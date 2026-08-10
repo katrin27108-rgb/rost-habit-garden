@@ -20,7 +20,7 @@
 .ambient i:nth-child(2) { right: 4%; top: 42%; background: #b2735e; }
 .ambient i:nth-child(3) { left: 8%; bottom: 14%; background: #758b5d; }
 
-.header,.viewTabs,.workspace,.gardenSection,.supportGrid,.catalogSection,.statisticsSection,.successSection,.footer { position: relative; z-index: 1; width: min(100% - 44px,1440px); margin-inline: auto; }
+.header,.viewTabs,.workspace,.gardenSection,.supportGrid,.catalogSection,.statisticsSection,.successSection,.tipsSection,.footer { position: relative; z-index: 1; width: min(100% - 44px,1440px); margin-inline: auto; }
 .header { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 28px; border-bottom: 1px solid rgba(37,70,56,.12); }
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
 .brandMark { width: 42px; height: 46px; display: grid; place-items: center; border-radius: 18px 18px 18px 5px; background: var(--ink); color: #e9cf82; font: 700 24px/1 Georgia,serif; transform: rotate(-3deg); }
@@ -339,6 +339,67 @@
 .habitStatResult span { margin-top:3px; color:#6d7b74; font-size:10px; }
 .habitStatResult small { margin-top:6px; color:#8a958f; font-size:9px; }
 
+.tipsSection { padding:38px 0 72px; }
+.tipsHero { display:grid; grid-template-columns:.9fr 1.1fr; gap:14px; }
+.tipsHeroCopy,.sneakerLadder { min-height:500px; position:relative; overflow:hidden; border-radius:30px; box-shadow:0 24px 70px rgba(49,65,52,.08); }
+.tipsHeroCopy { padding:45px; display:flex; flex-direction:column; justify-content:center; border:1px solid rgba(255,255,255,.08); background:radial-gradient(circle at 86% 18%,rgba(235,211,130,.16),transparent 25%),linear-gradient(145deg,#214c3e,#173c32); color:#fffaf0; }
+.tipsHeroCopy::before,.tipsHeroCopy::after { content:"❧"; position:absolute; color:rgba(226,214,156,.08); font:500 190px/1 Georgia,serif; }
+.tipsHeroCopy::before { right:-25px; top:-45px; transform:rotate(22deg); }
+.tipsHeroCopy::after { left:-45px; bottom:-80px; transform:rotate(-28deg); }
+.tipsHeroCopy > * { position:relative; z-index:1; }
+.tipsHeroCopy .eyebrow { color:#d9cc91; }
+.tipsHeroCopy h1 { margin:15px 0 20px; font:500 clamp(39px,4.6vw,66px)/.98 Georgia,serif; letter-spacing:-.052em; }
+.tipsHeroCopy > p { max-width:570px; margin:0; color:#ced9d3; font:400 15px/1.7 Georgia,serif; }
+.tipPrinciples { margin-top:30px; display:flex; flex-wrap:wrap; gap:7px; }
+.tipPrinciples span { padding:8px 11px; border:1px solid rgba(255,255,255,.14); border-radius:100px; background:rgba(255,255,255,.06); color:#e1e7df; font-size:9px; font-weight:800; letter-spacing:.05em; }
+.sneakerLadder { padding:31px 34px; border:1px solid rgba(182,146,52,.2); background:radial-gradient(circle at 88% 10%,rgba(233,202,108,.18),transparent 27%),#fffaf0; }
+.ladderHeading { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
+.ladderHeading span { color:#a47b24; font-size:9px; font-weight:900; letter-spacing:.12em; }
+.ladderHeading b { color:#244f40; font:500 21px Georgia,serif; }
+.sneakerLadder ol { margin:24px 0 20px; padding:0; list-style:none; }
+.sneakerLadder li { min-height:61px; position:relative; display:grid; grid-template-columns:40px 1fr; align-items:center; gap:12px; }
+.sneakerLadder li:not(:last-child)::after { content:""; position:absolute; left:19px; top:48px; bottom:-13px; width:1px; background:linear-gradient(#b7c9ad,#d9dfd3); }
+.sneakerLadder li > span { width:40px; height:40px; display:grid; place-items:center; border:1px solid #b8c8ae; border-radius:50%; background:#edf2e7; color:#4f7455; font:600 14px Georgia,serif; }
+.sneakerLadder li p,.sneakerLadder li b,.sneakerLadder li small { display:block; }
+.sneakerLadder li p { margin:0; }
+.sneakerLadder li b { font:500 15px/1.2 Georgia,serif; }
+.sneakerLadder li small { margin-top:4px; color:#728178; font-size:10px; line-height:1.4; }
+.ladderPermission { margin:0; padding:14px 16px 14px 45px; position:relative; border:1px solid #d6dfcf; border-radius:16px 16px 5px 16px; background:#f0f4e9; color:#536a5e; font:400 11px/1.55 Georgia,serif; }
+.ladderPermission > span { position:absolute; left:14px; top:14px; width:21px; height:21px; display:grid; place-items:center; border-radius:50%; background:#63805a; color:white; font:700 10px Inter,sans-serif; }
+.ladderPermission b { font-weight:600; }
+.tipsHeading { margin:47px 0 20px; display:flex; align-items:flex-end; justify-content:space-between; gap:28px; }
+.tipsHeading h2 { margin:9px 0 0; font:500 clamp(31px,3.7vw,48px)/1 Georgia,serif; letter-spacing:-.04em; }
+.tipsHeading > p { max-width:440px; margin:0; color:#62756b; font:400 13px/1.6 Georgia,serif; text-align:right; }
+.tipsGrid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.tipCard { min-width:0; min-height:355px; padding:22px; display:flex; flex-direction:column; border:1px solid rgba(47,79,64,.13); border-radius:24px; background:rgba(255,253,248,.8); box-shadow:0 16px 42px rgba(50,65,53,.045); }
+.tipCard:nth-child(4n+2) { background:#f5f1ea; }
+.tipCard:nth-child(4n+3) { background:#f0f3e9; }
+.tipCard:nth-child(4n) { background:#f6f0e8; }
+.tipCardTop { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.tipCardTop > span { width:38px; height:38px; display:grid; place-items:center; border:1px solid #c7d2c1; border-radius:14px 14px 14px 4px; color:#55745a; font:600 12px Georgia,serif; }
+.tipCardTop small { color:#829087; font-size:8px; font-weight:900; letter-spacing:.11em; }
+.tipCard h2 { margin:18px 0 10px; font:500 23px/1.08 Georgia,serif; letter-spacing:-.025em; }
+.tipCard > p { margin:0; color:#62736a; font:400 12px/1.58 Georgia,serif; }
+.tipCard blockquote { margin:18px 0 15px; padding:13px 14px; border:0; border-left:2px solid #b7c7ad; border-radius:0 12px 12px 0; background:rgba(255,255,255,.48); }
+.tipCard blockquote span { color:#6e8567; font-size:8px; font-weight:900; letter-spacing:.1em; }
+.tipCard blockquote p { margin:6px 0 0; color:#4e665a; font:400 11px/1.5 Georgia,serif; }
+.tipCard > strong { margin-top:auto; padding-top:13px; display:flex; align-items:flex-start; gap:8px; border-top:1px solid rgba(49,79,64,.1); color:#51695d; font-size:10px; line-height:1.45; }
+.tipCard > strong span { color:#9a782a; font-size:15px; line-height:.8; }
+.personalTip { margin-top:14px; padding:29px 32px; display:flex; align-items:center; justify-content:space-between; gap:30px; border:1px solid rgba(186,148,49,.22); border-radius:26px; background:linear-gradient(135deg,#fff8e8,#e9f0e2); }
+.personalTip h2 { margin:8px 0 7px; font:500 27px/1.08 Georgia,serif; }
+.personalTip p { max-width:780px; margin:0; color:#5e7167; font:400 12px/1.55 Georgia,serif; }
+.personalTip button { flex:0 0 auto; min-height:48px; padding:0 18px; border:0; border-radius:15px; background:#244f40; color:#fffaf0; font-size:10px; font-weight:850; cursor:pointer; }
+.personalTip button span { margin-left:9px; color:#ead47e; font-size:15px; }
+.tipsResearch { margin-top:14px; padding:22px 25px; display:flex; align-items:center; justify-content:space-between; gap:28px; border:1px solid rgba(47,79,64,.11); border-radius:22px; background:rgba(251,248,240,.66); }
+.tipsResearch > div { max-width:650px; display:flex; align-items:flex-start; gap:13px; }
+.tipsResearch > div > span { width:35px; height:35px; flex:0 0 auto; display:grid; place-items:center; border-radius:50%; background:#e6ecdf; color:#607957; font-size:18px; }
+.tipsResearch p,.tipsResearch b,.tipsResearch small { display:block; }
+.tipsResearch p { margin:0; }
+.tipsResearch b { font:500 14px Georgia,serif; }
+.tipsResearch small { margin-top:5px; color:#6c7d74; font-size:10px; line-height:1.5; }
+.tipsResearch nav { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:6px; }
+.tipsResearch a { padding:7px 9px; border:1px solid #d9ded4; border-radius:100px; background:#fffdf8; color:#5d7468; font-size:8px; font-weight:800; text-decoration:none; }
+
 .footer { min-height: 98px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 45px; border-top: 1px solid rgba(47,82,69,.13); color: #65776d; font-size: 10px; }
 .footer > span { color: var(--ink); font-weight: 800; }
 .footer p { max-width: 650px; margin: 0 auto; text-align: center; line-height: 1.55; }
@@ -430,7 +491,7 @@
 }
 
 @media (max-width: 860px) {
-  .header,.viewTabs,.workspace,.gardenSection,.supportGrid,.catalogSection,.statisticsSection,.successSection,.footer { width:min(100% - 24px,1440px); }
+  .header,.viewTabs,.workspace,.gardenSection,.supportGrid,.catalogSection,.statisticsSection,.successSection,.tipsSection,.footer { width:min(100% - 24px,1440px); }
   .header { padding: 12px 0; }
   .nav { justify-content:flex-end; gap:9px; }
   .backLink { display:none; }
@@ -447,6 +508,11 @@
   .monthPicker { width:100%; }
   .statCards { grid-template-columns:1fr 1fr; }
   .statisticsGrid { grid-template-columns:1fr; }
+  .tipsHero { grid-template-columns:1fr; }
+  .tipsHeroCopy,.sneakerLadder { min-height:0; }
+  .tipsGrid { grid-template-columns:1fr 1fr; }
+  .personalTip,.tipsResearch { align-items:flex-start; flex-direction:column; }
+  .tipsResearch nav { justify-content:flex-start; }
   .footer { padding:24px 0; display:flex; flex-direction:column; gap:12px; text-align:center; }
 }
 
@@ -458,8 +524,8 @@
   .syncButton { padding:8px 10px; }
   .accountBadge { max-width:230px; }
   .accountBadge > span { max-width:125px; }
-  .viewTabs { margin-top:12px; }
-  .viewTabs button { min-width:0; flex:1; padding:0 8px; }
+  .viewTabs { margin-top:12px; overflow-x:auto; }
+  .viewTabs button { min-width:112px; flex:0 0 auto; padding:0 9px; }
   .viewTabs button > b { display:none; }
   .workspace { padding-top:22px; }
   .habitsPanel,.plantStage { padding:20px 16px; border-radius:23px; }
@@ -514,6 +580,22 @@
   .statHabitCopy > strong { font-size:15px; }
   .statHabitCopy p { line-height:1.35; }
   .habitStatResult b { font-size:25px; }
+  .tipsSection { padding-top:27px; }
+  .tipsHeroCopy { padding:34px 22px; border-radius:24px; }
+  .tipsHeroCopy h1 { font-size:42px; }
+  .tipsHeroCopy > p { font-size:14px; }
+  .sneakerLadder { padding:24px 18px; border-radius:24px; }
+  .ladderHeading { align-items:flex-start; flex-direction:column; gap:6px; }
+  .sneakerLadder li { grid-template-columns:36px 1fr; gap:10px; }
+  .sneakerLadder li > span { width:36px; height:36px; }
+  .sneakerLadder li:not(:last-child)::after { left:17px; top:46px; }
+  .tipsHeading { align-items:flex-start; flex-direction:column; }
+  .tipsHeading > p { text-align:left; }
+  .tipsGrid { grid-template-columns:1fr; }
+  .tipCard { min-height:0; }
+  .personalTip { padding:23px 19px; }
+  .personalTip button { width:100%; }
+  .tipsResearch { padding:19px 16px; }
   .catalogSection { padding-top:45px; }
   .catalogGrid > button { min-height:230px; }
   .speciesGrid { grid-template-columns:repeat(2,1fr); }
