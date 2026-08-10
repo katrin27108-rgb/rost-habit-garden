@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useState, type CSSProperties } from "react";
 import styles from "./living-garden.module.css";
 
 type SpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera";
-type CareEffect = "grow" | "fertilizer" | "kind";
+type CareEffect = "growOut" | "growIn" | "fertilizer" | "kind";
 
 type Species = {
   code: SpeciesCode;
@@ -87,52 +88,44 @@ const growthDescriptions: Record<SpeciesCode, string[]> = {
   ],
 };
 
-function frameBlend(progress: number) {
+function frameProgress(progress: number) {
   const exact = Math.min(15, Math.max(0, progress * 15));
-  const first = Math.floor(exact);
-  const second = Math.min(15, first + 1);
-  return { first, second, mix: exact - first };
+  const frame = Math.floor(exact);
+  return { frame, withinFrame: exact - frame };
 }
 
 function plantGrowthLabel(species: SpeciesCode, progress: number) {
-  return growthDescriptions[species][Math.min(15, Math.floor(progress * 15))];
+  return growthDescriptions[species][frameProgress(progress).frame];
 }
 
 function nextPlantChange(species: SpeciesCode, progress: number, durationDays: number) {
-  const nextFrame = Math.min(15, Math.ceil(Math.min(1, progress + 1 / durationDays) * 15));
+  const currentFrame = frameProgress(progress).frame;
+  const nextFrame = frameProgress(Math.min(1, progress + 1 / durationDays)).frame;
+  if (nextFrame === currentFrame) return "нынешний росток ещё немного разовьётся";
   const label = growthDescriptions[species][nextFrame];
   return label.charAt(0).toLocaleLowerCase("ru") + label.slice(1);
 }
 
-function SpriteFrame({ species: code, frame, opacity }: { species: SpeciesCode; frame: number; opacity: number }) {
-  const column = frame % 4;
-  const row = Math.floor(frame / 4);
+function GrowthFrame({ species: code, progress }: { species: SpeciesCode; progress: number }) {
+  const { frame, withinFrame } = frameProgress(progress);
+  const frameScale = 1 + withinFrame * 0.012;
   return (
-    <span
-      className={styles.spriteFrame}
-      style={{
-        backgroundImage: `url(/plants/growth/${code}-growth.png)`,
-        backgroundPosition: `${column * 100 / 3}% ${row * 100 / 3}%`,
-        opacity,
-      }}
+    <Image
+      className={styles.frameImage}
+      src={`/plants/growth/${code}/${String(frame).padStart(2, "0")}.png?v=2`}
+      alt=""
+      width={384}
+      height={384}
+      unoptimized
+      aria-hidden="true"
+      style={{ "--frame-scale": frameScale } as CSSProperties}
     />
-  );
-}
-
-function GrowthFrameSet({ species: code, progress, className }: { species: SpeciesCode; progress: number; className: string }) {
-  const blend = frameBlend(progress);
-  return (
-    <span className={`${styles.spriteSet} ${className}`} aria-hidden="true">
-      <SpriteFrame species={code} frame={blend.first} opacity={1 - blend.mix} />
-      {blend.second !== blend.first && <SpriteFrame species={code} frame={blend.second} opacity={blend.mix} />}
-    </span>
   );
 }
 
 function PlantArt({ plant, effect, className = "" }: { plant: PlantHabit; effect?: CareEffect; className?: string }) {
   const plantSpecies = getSpecies(plant.species);
   const progress = growthProgress(plant);
-  const previousProgress = Math.max(0, progress - 1 / plant.durationDays);
   return (
     <div
       className={`${styles.plantArt} ${effect ? styles[effect] : ""} ${className}`}
@@ -140,8 +133,7 @@ function PlantArt({ plant, effect, className = "" }: { plant: PlantHabit; effect
       role="img"
       aria-label={`${plantSpecies.name}. ${plantGrowthLabel(plant.species, progress)}. Рост ${Math.round(progress * 100)} процентов.`}
     >
-      {effect === "grow" && <GrowthFrameSet species={plant.species} progress={previousProgress} className={styles.previousSpriteSet} />}
-      <GrowthFrameSet species={plant.species} progress={progress} className={styles.currentSpriteSet} />
+      <GrowthFrame species={plant.species} progress={progress} />
       {effect === "fertilizer" && <span className={styles.fertilizerDust} aria-hidden="true">✦ ✧ ✦</span>}
       {effect === "kind" && <span className={styles.kindHearts} aria-hidden="true">♡  ♡  ♡</span>}
     </div>
@@ -178,12 +170,16 @@ export default function LivingPlantsPrototype() {
     if (!plant) return;
     setSelectedId(plantId);
     if (todayChecks[plantId] || plant.completedDays >= plant.durationDays) return;
-    setPlants((current) => current.map((item) => item.id === plantId
-      ? { ...item, completedDays: Math.min(item.durationDays, item.completedDays + 1) }
-      : item));
     setTodayChecks((current) => ({ ...current, [plantId]: true }));
-    setMessages((current) => ({ ...current, [plantId]: careMessages.grow }));
-    showCareEffect(plantId, "grow");
+    setEffect({ plantId, kind: "growOut" });
+    window.setTimeout(() => {
+      setPlants((current) => current.map((item) => item.id === plantId
+        ? { ...item, completedDays: Math.min(item.durationDays, item.completedDays + 1) }
+        : item));
+      setMessages((current) => ({ ...current, [plantId]: careMessages.grow }));
+      setEffect({ plantId, kind: "growIn" });
+      window.setTimeout(() => setEffect((current) => current?.plantId === plantId && current.kind === "growIn" ? null : current), 780);
+    }, 430);
   }
 
   function sayKindWord() {
