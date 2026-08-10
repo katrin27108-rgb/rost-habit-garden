@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS `gardens` (
 	`public_id` text NOT NULL,
 	`display_name` text NOT NULL,
 	`habits_json` text DEFAULT '[]' NOT NULL,
+	`living_garden_json` text,
+	`living_garden_updated_at` text,
 	`total_completions` integer DEFAULT 0 NOT NULL,
 	`best_streak` integer DEFAULT 0 NOT NULL,
 	`garden_stage` integer DEFAULT 1 NOT NULL,

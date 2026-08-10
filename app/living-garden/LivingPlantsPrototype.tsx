@@ -2,13 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useState, type CSSProperties } from "react";
+import { FormEvent, useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  LIVING_GARDEN_STORAGE_KEY,
+  LIVING_GARDEN_VERSION,
+  completedDaysFor,
+  livingDateKey,
+  livingDecorations,
+  livingGardenPoints,
+  mergeLivingGardenSnapshots,
+  sanitizeLivingGardenSnapshot,
+  unlockedLivingSpecies,
+  type LivingDecorationCode,
+  type LivingFrequency,
+  type LivingGardenSnapshot,
+  type LivingPlantHabit,
+  type LivingPurchase,
+  type LivingSpeciesCode,
+} from "../../lib/living-garden-sync";
+import AuthModal from "../AuthModal";
 import styles from "./living-garden.module.css";
 
-type SpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera" | "oak" | "apple" | "peony" | "sakura";
+type SpeciesCode = LivingSpeciesCode;
 type CareEffect = "growOut" | "growIn" | "fertilizer" | "kind" | "upgrade";
-type Frequency = "daily" | "weekly" | "threeWeekly";
-type DecorationCode = "sign" | "lantern" | "stones";
+type Frequency = LivingFrequency;
+type DecorationCode = LivingDecorationCode;
 
 type Species = {
   code: SpeciesCode;
@@ -19,17 +37,11 @@ type Species = {
   unlockPrice?: number;
 };
 
-type PlantHabit = {
-  id: string;
-  habit: string;
-  species: SpeciesCode;
-  completedDays: number;
-  frequency: Frequency;
-  reminder: string | null;
-};
+type PlantHabit = LivingPlantHabit;
 
 const TOTAL_STAGES = 30;
 const FERTILIZER_PRICE = 25;
+const INITIAL_UPDATED_AT = "2026-08-10T00:00:00.000Z";
 
 const species: Species[] = [
   { code: "sunflower", name: "Подсолнух", character: "Солнечный и смелый", family: "Цветок", accent: "#d9a126" },
@@ -49,12 +61,14 @@ const decorations: { code: DecorationCode; name: string; detail: string; price: 
 ];
 
 const initialPlants: PlantHabit[] = [
-  { id: "walk", habit: "Гулять 30 минут", species: "sunflower", completedDays: 11, frequency: "daily", reminder: "18:30" },
-  { id: "read", habit: "Читать перед сном", species: "lavender", completedDays: 7, frequency: "daily", reminder: "21:30" },
-  { id: "water", habit: "Пить достаточно воды", species: "monstera", completedDays: 22, frequency: "daily", reminder: "09:00" },
-  { id: "reflect", habit: "Подводить итоги недели", species: "oak", completedDays: 15, frequency: "weekly", reminder: "18:30" },
-  { id: "vegetables", habit: "Добавлять овощи в обед", species: "tomato", completedDays: 19, frequency: "threeWeekly", reminder: null },
+  { id: "walk", habit: "Гулять 30 минут", species: "sunflower", baseCompletedDays: 11, completionDates: [], frequency: "daily", reminder: "18:30", updatedAt: INITIAL_UPDATED_AT },
+  { id: "read", habit: "Читать перед сном", species: "lavender", baseCompletedDays: 7, completionDates: [], frequency: "daily", reminder: "21:30", updatedAt: INITIAL_UPDATED_AT },
+  { id: "water", habit: "Пить достаточно воды", species: "monstera", baseCompletedDays: 22, completionDates: [], frequency: "daily", reminder: "09:00", updatedAt: INITIAL_UPDATED_AT },
+  { id: "reflect", habit: "Подводить итоги недели", species: "oak", baseCompletedDays: 15, completionDates: [], frequency: "weekly", reminder: "18:30", updatedAt: INITIAL_UPDATED_AT },
+  { id: "vegetables", habit: "Добавлять овощи в обед", species: "tomato", baseCompletedDays: 19, completionDates: [], frequency: "threeWeekly", reminder: null, updatedAt: INITIAL_UPDATED_AT },
 ];
+
+const initialSnapshot: LivingGardenSnapshot = { version: LIVING_GARDEN_VERSION, plants: initialPlants, claimedAchievements: [], purchases: [] };
 
 const frequencyLabels: Record<Frequency, string> = {
   daily: "Каждый день",
@@ -144,7 +158,7 @@ function getSpecies(code: SpeciesCode) {
 }
 
 function frameFor(plant: PlantHabit) {
-  return Math.min(TOTAL_STAGES - 1, Math.max(0, plant.completedDays));
+  return Math.min(TOTAL_STAGES - 1, Math.max(0, completedDaysFor(plant)));
 }
 
 function GrowthFrame({ plant }: { plant: PlantHabit }) {
@@ -186,31 +200,122 @@ function PlantArt({ plant, effect, decoration, className = "" }: { plant: PlantH
 export default function LivingPlantsPrototype() {
   const [plants, setPlants] = useState(initialPlants);
   const [selectedId, setSelectedId] = useState(initialPlants[0].id);
-  const [todayChecks, setTodayChecks] = useState<Record<string, boolean>>({});
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [effect, setEffect] = useState<{ plantId: string; kind: CareEffect } | null>(null);
-  const [points, setPoints] = useState(120);
-  const [unlockedSpecies, setUnlockedSpecies] = useState<SpeciesCode[]>(species.filter((item) => !item.unlockPrice).map((item) => item.code));
-  const [decorationsByPlant, setDecorationsByPlant] = useState<Record<string, DecorationCode>>({});
   const [showDecorationPicker, setShowDecorationPicker] = useState(false);
   const [claimedAchievements, setClaimedAchievements] = useState<string[]>([]);
+  const [purchases, setPurchases] = useState<LivingPurchase[]>([]);
   const [showPlanting, setShowPlanting] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"checking" | "signed-out" | "connected" | "offline">("checking");
+  const [accountName, setAccountName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [syncedAt, setSyncedAt] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const [cloudReady, setCloudReady] = useState(false);
   const [newHabit, setNewHabit] = useState("Утренняя разминка");
   const [newSpecies, setNewSpecies] = useState<SpeciesCode>("apple");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newReminder, setNewReminder] = useState<string | null>("09:00");
 
+  const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases }), [claimedAchievements, plants, purchases]);
+  const points = livingGardenPoints(snapshot);
+  const unlockedSpecies = unlockedLivingSpecies(snapshot);
+  const decorationsByPlant = livingDecorations(snapshot);
+  const today = livingDateKey();
   const selected = plants.find((plant) => plant.id === selectedId) ?? plants[0];
   const selectedSpecies = getSpecies(selected.species);
   const selectedFrame = frameFor(selected);
-  const finishedToday = plants.filter((plant) => todayChecks[plant.id]).length;
+  const finishedToday = plants.filter((plant) => plant.completionDates.includes(today)).length;
   const streak = 8 + finishedToday;
+  const maxCompletedDays = Math.max(0, ...plants.map(completedDaysFor));
   const achievements = [
-    { id: "first-roots", icon: "❧", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", reward: 40, progress: `${Math.min(20, Math.max(...plants.map((plant) => plant.completedDays)))}/20`, ready: plants.some((plant) => plant.completedDays >= 20) },
+    { id: "first-roots", icon: "❧", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", reward: 40, progress: `${Math.min(20, maxCompletedDays)}/20`, ready: maxCompletedDays >= 20 },
     { id: "streak-ten", icon: "✦", title: "Десять дней рядом", description: "Поддерживай ритм 10 дней подряд", reward: 50, progress: `${Math.min(10, streak)}/10`, ready: streak >= 10 },
     { id: "three-today", icon: "☘", title: "День заботы", description: "Выполни 3 привычки за один день", reward: 30, progress: `${Math.min(3, finishedToday)}/3`, ready: finishedToday >= 3 },
     { id: "whole-garden", icon: "♕", title: "Весь сад улыбается", description: "Выполни сегодня все привычки", reward: 70, progress: `${finishedToday}/${plants.length}`, ready: finishedToday === plants.length },
   ];
+
+  useEffect(() => {
+    let cancelled = false;
+    const restoreAndConnect = async () => {
+      await Promise.resolve();
+      let localSnapshot = initialSnapshot;
+      try {
+        const saved = localStorage.getItem(LIVING_GARDEN_STORAGE_KEY);
+        const restored = saved ? sanitizeLivingGardenSnapshot(JSON.parse(saved)) : null;
+        if (restored) localSnapshot = mergeLivingGardenSnapshots(initialSnapshot, restored);
+      } catch {
+        // The starter garden remains available when local storage is unavailable.
+      }
+      if (cancelled) return;
+      setPlants(localSnapshot.plants);
+      setClaimedAchievements(localSnapshot.claimedAchievements);
+      setPurchases(localSnapshot.purchases);
+      setHydrated(true);
+
+      try {
+        const response = await fetch("/api/living-garden", { headers: { Accept: "application/json" } });
+        if (response.status === 401) {
+          if (!cancelled) setSyncStatus("signed-out");
+          return;
+        }
+        if (!response.ok) throw new Error("Cloud sync unavailable");
+        const data = await response.json() as { user?: { displayName?: string }; snapshot?: unknown; syncedAt?: string | null };
+        const remote = sanitizeLivingGardenSnapshot(data.snapshot);
+        const merged = remote ? mergeLivingGardenSnapshots(localSnapshot, remote) : localSnapshot;
+        if (cancelled) return;
+        setPlants(merged.plants);
+        setClaimedAchievements(merged.claimedAchievements);
+        setPurchases(merged.purchases);
+        setAccountName(data.user?.displayName ?? "Садовник");
+        setSyncedAt(data.syncedAt ?? null);
+        setSyncStatus("connected");
+        setCloudReady(true);
+      } catch {
+        if (!cancelled) setSyncStatus("offline");
+      }
+    };
+    void restoreAndConnect();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(LIVING_GARDEN_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // The garden remains usable for the current session when storage is blocked.
+    }
+  }, [hydrated, snapshot]);
+
+  useEffect(() => {
+    if (!cloudReady || syncStatus !== "connected") return;
+    const timeout = window.setTimeout(() => {
+      setIsSaving(true);
+      fetch("/api/living-garden", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshot }),
+      }).then(async (response) => {
+        if (response.status === 401) {
+          setSyncStatus("signed-out");
+          return;
+        }
+        if (!response.ok) throw new Error("Cloud sync unavailable");
+        const data = await response.json() as { snapshot?: unknown; syncedAt?: string };
+        const remote = sanitizeLivingGardenSnapshot(data.snapshot);
+        if (remote && JSON.stringify(remote) !== JSON.stringify(snapshot)) {
+          const merged = mergeLivingGardenSnapshots(snapshot, remote);
+          setPlants(merged.plants);
+          setClaimedAchievements(merged.claimedAchievements);
+          setPurchases(merged.purchases);
+        }
+        setSyncedAt(data.syncedAt ?? new Date().toISOString());
+      }).catch(() => setSyncStatus("offline")).finally(() => setIsSaving(false));
+    }, 650);
+    return () => window.clearTimeout(timeout);
+  }, [cloudReady, snapshot, syncStatus]);
 
   function showCareEffect(plantId: string, kind: CareEffect) {
     setEffect({ plantId, kind });
@@ -221,16 +326,14 @@ export default function LivingPlantsPrototype() {
     const plant = plants.find((item) => item.id === plantId);
     if (!plant) return;
     setSelectedId(plantId);
-    if (todayChecks[plantId] || plant.completedDays >= TOTAL_STAGES) return;
+    if (plant.completionDates.includes(today) || completedDaysFor(plant) >= TOTAL_STAGES) return;
 
-    setTodayChecks((current) => ({ ...current, [plantId]: true }));
     setEffect({ plantId, kind: "growOut" });
     window.setTimeout(() => {
       setPlants((current) => current.map((item) => item.id === plantId
-        ? { ...item, completedDays: Math.min(TOTAL_STAGES, item.completedDays + 1) }
+        ? { ...item, completionDates: [...new Set([...item.completionDates, today])].sort(), updatedAt: new Date().toISOString() }
         : item));
-      setPoints((current) => current + 10);
-      setMessages((current) => ({ ...current, [plantId]: praiseMessages[(plant.completedDays + 1) % praiseMessages.length] }));
+      setMessages((current) => ({ ...current, [plantId]: praiseMessages[(completedDaysFor(plant) + 1) % praiseMessages.length] }));
       setEffect({ plantId, kind: "growIn" });
       window.setTimeout(() => setEffect((current) => current?.plantId === plantId && current.kind === "growIn" ? null : current), 820);
     }, 430);
@@ -246,7 +349,7 @@ export default function LivingPlantsPrototype() {
       setMessages((current) => ({ ...current, [selected.id]: "До удобрения осталось совсем немного очков. Они приходят за регулярные настоящие отметки." }));
       return;
     }
-    setPoints((current) => current - FERTILIZER_PRICE);
+    setPurchases((current) => [...current, { id: crypto.randomUUID(), kind: "care", target: "fertilizer", price: FERTILIZER_PRICE, createdAt: new Date().toISOString() }]);
     setMessages((current) => ({ ...current, [selected.id]: "Удобрение добавлено. Ты бережно заботишься о саде — и это тоже заслуживает похвалы." }));
     showCareEffect(selected.id, "fertilizer");
   }
@@ -261,8 +364,7 @@ export default function LivingPlantsPrototype() {
       setMessages((current) => ({ ...current, [selected.id]: `Для украшения «${name}» нужно ещё ${price - points} ✦. Каждая выполненная привычка приносит 10 ✦.` }));
       return;
     }
-    setPoints((current) => current - price);
-    setDecorationsByPlant((current) => ({ ...current, [selected.id]: code }));
+    setPurchases((current) => [...current, { id: crypto.randomUUID(), kind: "decoration", target: code, plantId: selected.id, price, createdAt: new Date().toISOString() }]);
     setMessages((current) => ({ ...current, [selected.id]: `${name} появилось рядом прямо сейчас. Вот во что превращается твоё постоянство.` }));
     setShowDecorationPicker(false);
     showCareEffect(selected.id, "upgrade");
@@ -275,8 +377,7 @@ export default function LivingPlantsPrototype() {
       return;
     }
     if (points < item.unlockPrice) return;
-    setPoints((current) => current - item.unlockPrice!);
-    setUnlockedSpecies((current) => [...current, item.code]);
+    setPurchases((current) => [...current, { id: crypto.randomUUID(), kind: "species", target: item.code, price: item.unlockPrice!, createdAt: new Date().toISOString() }]);
     setNewSpecies(item.code);
     setShowPlanting(true);
     setMessages((current) => ({ ...current, [selected.id]: `${item.name} теперь доступна в твоём саду. Ты открыла её благодаря регулярным шагам.` }));
@@ -287,13 +388,12 @@ export default function LivingPlantsPrototype() {
     const achievement = achievements.find((item) => item.id === id);
     if (!achievement?.ready) return;
     setClaimedAchievements((current) => [...current, id]);
-    setPoints((current) => current + reward);
     setMessages((current) => ({ ...current, [selected.id]: `Достижение «${title}» твоё. Ты умничка — сад дарит тебе ${reward} ✦.` }));
     showCareEffect(selected.id, "kind");
   }
 
   function updateSelected(patch: Partial<Pick<PlantHabit, "frequency" | "reminder">>) {
-    setPlants((current) => current.map((plant) => plant.id === selected.id ? { ...plant, ...patch } : plant));
+    setPlants((current) => current.map((plant) => plant.id === selected.id ? { ...plant, ...patch, updatedAt: new Date().toISOString() } : plant));
   }
 
   function plantNewHabit(event: FormEvent<HTMLFormElement>) {
@@ -301,17 +401,23 @@ export default function LivingPlantsPrototype() {
     const name = newHabit.trim();
     if (!name) return;
     const plant: PlantHabit = {
-      id: `plant-${Date.now()}`,
+      id: crypto.randomUUID(),
       habit: name,
       species: newSpecies,
-      completedDays: 0,
+      baseCompletedDays: 0,
+      completionDates: [],
       frequency: newFrequency,
       reminder: newReminder,
+      updatedAt: new Date().toISOString(),
     };
     setPlants((current) => [...current, plant]);
     setSelectedId(plant.id);
     setMessages((current) => ({ ...current, [plant.id]: "Какой хороший выбор. Здесь начинается новая история — с семечка и твоего первого бережного шага." }));
     setShowPlanting(false);
+  }
+
+  function signOut() {
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.reload());
   }
 
   return (
@@ -325,6 +431,13 @@ export default function LivingPlantsPrototype() {
         </Link>
         <nav className={styles.nav} aria-label="Навигация сада">
           <a href="#garden">Растения в моём саду</a>
+          {syncStatus === "signed-out" ? (
+            <button className={styles.syncButton} onClick={() => setShowAuth(true)}><b>☁</b><span>Войти и синхронизировать</span></button>
+          ) : syncStatus === "connected" ? (
+            <span className={styles.accountBadge} title={syncedAt ? `Последняя синхронизация: ${new Date(syncedAt).toLocaleString("ru-RU")}` : "Облачный сад подключён"}><b>☁</b><span>{accountName} · {isSaving ? "сохраняю…" : "синхронизировано"}</span><button onClick={signOut}>Выйти</button></span>
+          ) : syncStatus === "offline" ? (
+            <button className={styles.syncButton} onClick={() => window.location.reload()}><b>◌</b><span>На устройстве · повторить</span></button>
+          ) : <span className={styles.syncChecking}>Подключаю сад…</span>}
           <span className={styles.pointsBadge}>✦ <b>{points}</b> очков</span>
           <Link className={styles.backLink} href="/garden-prototype">Открыть 3D-сад</Link>
         </nav>
@@ -346,7 +459,7 @@ export default function LivingPlantsPrototype() {
           <div className={styles.habitList}>
             {plants.map((plant) => {
               const itemSpecies = getSpecies(plant.species);
-              const checked = Boolean(todayChecks[plant.id]);
+              const checked = plant.completionDates.includes(today);
               const active = plant.id === selected.id;
               return (
                 <button
@@ -406,10 +519,10 @@ export default function LivingPlantsPrototype() {
           </div>
 
           <div className={styles.monthBlock}>
-            <div className={styles.monthHeading}><span>30 отметок роста</span><b>{selected.completedDays} выполнено</b></div>
-            <div className={styles.dayDots} aria-label={`${selected.completedDays} выполнений из 30`}>
+            <div className={styles.monthHeading}><span>30 отметок роста</span><b>{completedDaysFor(selected)} выполнено</b></div>
+            <div className={styles.dayDots} aria-label={`${completedDaysFor(selected)} выполнений из 30`}>
               {Array.from({ length: TOTAL_STAGES }, (_, index) => (
-                <i key={index} className={`${index < selected.completedDays ? styles.filledDay : ""} ${index === selected.completedDays ? styles.nextDay : ""}`}>{index + 1}</i>
+                <i key={index} className={`${index < completedDaysFor(selected) ? styles.filledDay : ""} ${index === completedDaysFor(selected) ? styles.nextDay : ""}`}>{index + 1}</i>
               ))}
             </div>
           </div>
@@ -466,7 +579,7 @@ export default function LivingPlantsPrototype() {
         <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>ЛАВКА РЕДКОСТЕЙ</span><h2>Открывай растения за звёзды</h2></div><p>Обычные виды доступны сразу. Редкие пион и сакура открываются навсегда — и тоже растут через 30 настоящих стадий.</p></div>
         <div className={styles.catalogGrid}>
           {species.map((item) => {
-            const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, completedDays: 29, frequency: "daily", reminder: null };
+            const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], frequency: "daily", reminder: null, updatedAt: INITIAL_UPDATED_AT };
             const unlocked = unlockedSpecies.includes(item.code);
             return <button key={item.code} className={!unlocked ? styles.lockedSpecies : ""} onClick={() => unlockPlant(item)} disabled={!unlocked && points < (item.unlockPrice ?? 0)} style={{ "--accent": item.accent } as CSSProperties}><PlantArt plant={preview} /><span><small>{item.family}</small><b>{item.name}</b><em>{unlocked ? item.character : `Открыть навсегда · ${item.unlockPrice} ✦`}</em></span>{!unlocked && <i className={styles.lockBadge}>редкое</i>}</button>;
           })}
@@ -481,13 +594,14 @@ export default function LivingPlantsPrototype() {
             <button className={styles.modalClose} type="button" onClick={() => setShowPlanting(false)} aria-label="Закрыть">×</button>
             <span className={styles.eyebrow}>НОВАЯ ПРИВЫЧКА</span><h2>Посади ещё одну цель</h2><p>Выбери растение, удобный ритм и напоминание. Каждый выполненный шаг откроет один из 30 этапов.</p>
             <label className={styles.habitInput}><span>Моя привычка</span><input value={newHabit} onChange={(event) => setNewHabit(event.target.value)} autoFocus /></label>
-            <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.filter((item) => unlockedSpecies.includes(item.code)).map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, completedDays: 29, frequency: "daily", reminder: null }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
+            <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.filter((item) => unlockedSpecies.includes(item.code)).map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], frequency: "daily", reminder: null, updatedAt: INITIAL_UPDATED_AT }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
             <fieldset><legend>Как часто</legend><div className={styles.choiceGrid}>{(Object.keys(frequencyLabels) as Frequency[]).map((frequency) => <button type="button" key={frequency} className={newFrequency === frequency ? styles.selectedChoice : ""} onClick={() => setNewFrequency(frequency)}>{frequencyLabels[frequency]}</button>)}</div></fieldset>
             <fieldset><legend>Напоминание</legend><div className={styles.choiceGrid}>{([null, "09:00", "18:30", "21:30"] as const).map((time) => <button type="button" key={time ?? "off"} className={newReminder === time ? styles.selectedChoice : ""} onClick={() => setNewReminder(time)}>{time ? `В ${time}` : "Не напоминать"}</button>)}</div></fieldset>
             <button className={styles.plantButtonModal} type="submit"><span>Посадить семечко</span><b>→</b></button>
           </form>
         </div>
       )}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </main>
   );
 }

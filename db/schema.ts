@@ -6,6 +6,8 @@ export const gardens = sqliteTable("gardens", {
   publicId: text("public_id").notNull().unique(),
   displayName: text("display_name").notNull(),
   habitsJson: text("habits_json").notNull().default("[]"),
+  livingGardenJson: text("living_garden_json"),
+  livingGardenUpdatedAt: text("living_garden_updated_at"),
   totalCompletions: integer("total_completions").notNull().default(0),
   bestStreak: integer("best_streak").notNull().default(0),
   gardenStage: integer("garden_stage").notNull().default(1),

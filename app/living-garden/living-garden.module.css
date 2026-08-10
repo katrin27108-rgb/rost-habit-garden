@@ -12,6 +12,7 @@
 
 .page button,.page input,.page select { font: inherit; }
 .page button { color: inherit; }
+.page :global(.modal-submit) { color: #fff; }
 .ambient { position: fixed; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
 .ambient::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 76% 18%,rgba(231,201,116,.15),transparent 28%),radial-gradient(circle at 12% 62%,rgba(123,151,105,.09),transparent 25%); }
 .ambient i { position: absolute; width: 8px; height: 8px; border-radius: 50%; filter: blur(2px); opacity: .45; background: #d8a72f; }
@@ -28,6 +29,13 @@
 .brand small { margin-top: 5px; color: #829087; font-size: 10px; letter-spacing: .06em; }
 .nav { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: 12px; }
 .nav a { color: inherit; text-decoration: none; }
+.syncButton,.accountBadge,.syncChecking { min-height: 40px; border-radius: 100px; }
+.syncButton { padding: 8px 13px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(47,82,69,.16); background: rgba(255,255,255,.62); color: var(--ink); font-size: 11px; font-weight: 750; cursor: pointer; }
+.syncButton b,.accountBadge > b { color: #66845f; font-size: 15px; }
+.accountBadge { padding: 5px 6px 5px 12px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid #cfdbc9; background: #edf3e8; color: #58705e; font-size: 10px; }
+.accountBadge > span { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accountBadge button { padding: 7px 9px; border: 0; border-radius: 100px; background: rgba(255,255,255,.72); color: #627369; font-size: 9px; cursor: pointer; }
+.syncChecking { padding: 0 12px; display: inline-flex; align-items: center; color: #7b887f; font-size: 10px; }
 .pointsBadge { padding: 10px 14px; border-radius: 100px; background: #e9eddf; color: #65764e; }
 .pointsBadge b { color: var(--ink); }
 .backLink { padding: 11px 15px; border: 1px solid rgba(47,82,69,.15); border-radius: 100px; background: rgba(255,255,255,.48); }
@@ -240,6 +248,9 @@
 
 @media (max-width: 860px) {
   .header,.workspace,.gardenSection,.supportGrid,.catalogSection,.footer { width:min(100% - 24px,1440px); }
+  .header { padding: 12px 0; }
+  .nav { justify-content:flex-end; gap:9px; }
+  .backLink { display:none; }
   .workspace { grid-template-columns:1fr; }
   .habitsPanel { min-height:0; }
   .plantStage { min-height:690px; }
@@ -253,7 +264,11 @@
 @media (max-width: 620px) {
   .header { min-height:76px; }
   .brand small,.pointsBadge { display:none; }
-  .backLink { padding:9px 11px; }
+  .brandMark { width:38px; height:42px; }
+  .brand > span:last-child { display:none; }
+  .syncButton { padding:8px 10px; }
+  .accountBadge { max-width:230px; }
+  .accountBadge > span { max-width:125px; }
   .workspace { padding-top:22px; }
   .habitsPanel,.plantStage { padding:20px 16px; border-radius:23px; }
   .habitList { grid-template-columns:1fr; }
