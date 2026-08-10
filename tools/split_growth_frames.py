@@ -7,7 +7,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 GROWTH = ROOT / "public" / "plants" / "growth"
 SOURCES = ROOT / "assets" / "plants-growth-sources"
-SPECIES = ("sunflower", "tomato", "lavender", "monstera", "oak", "apple")
+SPECIES = ("sunflower", "tomato", "lavender", "monstera", "oak", "apple", "peony", "sakura")
 GRID_COLUMNS = 5
 GRID_ROWS = 6
 FRAME_COUNT = GRID_COLUMNS * GRID_ROWS

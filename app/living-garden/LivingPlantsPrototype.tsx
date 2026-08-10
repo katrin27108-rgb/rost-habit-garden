@@ -5,9 +5,10 @@ import Link from "next/link";
 import { FormEvent, useState, type CSSProperties } from "react";
 import styles from "./living-garden.module.css";
 
-type SpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera" | "oak" | "apple";
+type SpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera" | "oak" | "apple" | "peony" | "sakura";
 type CareEffect = "growOut" | "growIn" | "fertilizer" | "kind" | "upgrade";
 type Frequency = "daily" | "weekly" | "threeWeekly";
+type DecorationCode = "sign" | "lantern" | "stones";
 
 type Species = {
   code: SpeciesCode;
@@ -15,6 +16,7 @@ type Species = {
   character: string;
   family: string;
   accent: string;
+  unlockPrice?: number;
 };
 
 type PlantHabit = {
@@ -28,7 +30,6 @@ type PlantHabit = {
 
 const TOTAL_STAGES = 30;
 const FERTILIZER_PRICE = 25;
-const UPGRADE_PRICE = 40;
 
 const species: Species[] = [
   { code: "sunflower", name: "Подсолнух", character: "Солнечный и смелый", family: "Цветок", accent: "#d9a126" },
@@ -37,6 +38,14 @@ const species: Species[] = [
   { code: "monstera", name: "Монстера", character: "Уверенная и стойкая", family: "Комнатное", accent: "#4f8064" },
   { code: "oak", name: "Дуб", character: "Надёжный и терпеливый", family: "Дерево", accent: "#72834d" },
   { code: "apple", name: "Яблоня", character: "Заботливая и щедрая", family: "Дерево", accent: "#ba665e" },
+  { code: "peony", name: "Пион", character: "Пышный и деликатный", family: "Редкий цветок", accent: "#c8788f", unlockPrice: 160 },
+  { code: "sakura", name: "Сакура", character: "Тихая и волшебная", family: "Редкое дерево", accent: "#bd7f91", unlockPrice: 230 },
+];
+
+const decorations: { code: DecorationCode; name: string; detail: string; price: number; icon: string }[] = [
+  { code: "sign", name: "Тёплая табличка", detail: "Появится у земли рядом с растением", price: 40, icon: "⌂" },
+  { code: "lantern", name: "Фонарик-светлячок", detail: "Зажжётся мягким золотым светом", price: 60, icon: "✧" },
+  { code: "stones", name: "Тропинка из камней", detail: "Ляжет полукругом перед растением", price: 75, icon: "•••" },
 ];
 
 const initialPlants: PlantHabit[] = [
@@ -102,6 +111,22 @@ const growthDescriptions: Record<SpeciesCode, readonly string[]> = {
     "Распускаются первые цветы", "Белых цветков становится больше", "Яблоня покрывается цветами", "Появляются маленькие завязи", "Растут зелёные яблоки",
     "Яблоки становятся крупнее", "Плоды начинают светлеть", "На яблоках появляется румянец", "Почти все плоды созрели", "Яблоня вырастила спелые яблоки",
   ],
+  peony: [
+    "Семечко пиона ждёт в земле", "Появляется первый корешок", "Росток освобождается от оболочки", "Изогнутый росток тянется вверх", "Раскрываются две семядоли",
+    "Появляется первый настоящий лист", "Первый лист разворачивается", "Растёт вторая пара листьев", "Стебелёк становится крепче", "Листья приобретают резную форму",
+    "Появляется новый листовой ярус", "Росток становится гуще", "У основания намечается второй побег", "Молодой кустик ветвится", "Листьев становится заметно больше",
+    "Боковые побеги вытягиваются", "Куст пиона округляется", "Листовая крона становится плотнее", "На верхушке появляется бутон", "Бутон поднимается над листьями",
+    "Чашелистики начинают расходиться", "Бутон набирает розовый цвет", "Показываются первые лепестки", "Бутон становится мягче и круглее", "Наружные лепестки раскрываются",
+    "Цветок раскрывается на четверть", "Пион раскрыт наполовину", "Лепестки образуют пышную чашу", "Цветок почти полностью распустился", "Пион пышно расцвёл",
+  ],
+  sakura: [
+    "Косточка сакуры ждёт пробуждения", "Косточка раскрывается", "Появляется первый корень", "Корешок закрепляется в земле", "Побег выходит из косточки",
+    "Росток распрямляется", "Раскрываются семядоли", "Появляется первый настоящий лист", "Растёт вторая пара листьев", "Стволик начинает крепнуть",
+    "Листья становятся длиннее", "Саженец тянется вверх", "Появляется первая боковая веточка", "Формируется вторая ветвь", "Ствол приобретает древесный оттенок",
+    "Ветви расходятся в стороны", "Крона начинает округляться", "Появляются веточки второго порядка", "На ветвях формируются почки", "Почек становится заметно больше",
+    "Почки набухают", "На почках появляется розовый цвет", "Первая почка раскрывается", "Распускаются несколько цветков", "Цветение расходится по ветвям",
+    "Крона становится нежно-розовой", "Цветков становится всё больше", "Сакура почти полностью в цвету", "Крона покрывается лепестками", "Сакура пышно расцвела",
+  ],
 };
 
 const praiseMessages = [
@@ -137,7 +162,7 @@ function GrowthFrame({ plant }: { plant: PlantHabit }) {
   );
 }
 
-function PlantArt({ plant, effect, className = "" }: { plant: PlantHabit; effect?: CareEffect; className?: string }) {
+function PlantArt({ plant, effect, decoration, className = "" }: { plant: PlantHabit; effect?: CareEffect; decoration?: DecorationCode; className?: string }) {
   const plantSpecies = getSpecies(plant.species);
   const frame = frameFor(plant);
   return (
@@ -148,6 +173,9 @@ function PlantArt({ plant, effect, className = "" }: { plant: PlantHabit; effect
       aria-label={`${plantSpecies.name}. ${growthDescriptions[plant.species][frame]}. Этап ${frame + 1} из ${TOTAL_STAGES}.`}
     >
       <GrowthFrame plant={plant} />
+      {decoration === "sign" && <span className={styles.gardenSign} aria-hidden="true"><i>расти<br />бережно</i></span>}
+      {decoration === "lantern" && <span className={styles.gardenLantern} aria-hidden="true"><i /></span>}
+      {decoration === "stones" && <span className={styles.stonePath} aria-hidden="true"><i /><i /><i /><i /></span>}
       {effect === "fertilizer" && <span className={styles.fertilizerDust} aria-hidden="true">✦ ✧ ✦</span>}
       {effect === "kind" && <span className={styles.kindHearts} aria-hidden="true">♡ ♡ ♡</span>}
       {effect === "upgrade" && <span className={styles.upgradeGlow} aria-hidden="true">✦</span>}
@@ -162,6 +190,10 @@ export default function LivingPlantsPrototype() {
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [effect, setEffect] = useState<{ plantId: string; kind: CareEffect } | null>(null);
   const [points, setPoints] = useState(120);
+  const [unlockedSpecies, setUnlockedSpecies] = useState<SpeciesCode[]>(species.filter((item) => !item.unlockPrice).map((item) => item.code));
+  const [decorationsByPlant, setDecorationsByPlant] = useState<Record<string, DecorationCode>>({});
+  const [showDecorationPicker, setShowDecorationPicker] = useState(false);
+  const [claimedAchievements, setClaimedAchievements] = useState<string[]>([]);
   const [showPlanting, setShowPlanting] = useState(false);
   const [newHabit, setNewHabit] = useState("Утренняя разминка");
   const [newSpecies, setNewSpecies] = useState<SpeciesCode>("apple");
@@ -173,6 +205,12 @@ export default function LivingPlantsPrototype() {
   const selectedFrame = frameFor(selected);
   const finishedToday = plants.filter((plant) => todayChecks[plant.id]).length;
   const streak = 8 + finishedToday;
+  const achievements = [
+    { id: "first-roots", icon: "❧", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", reward: 40, progress: `${Math.min(20, Math.max(...plants.map((plant) => plant.completedDays)))}/20`, ready: plants.some((plant) => plant.completedDays >= 20) },
+    { id: "streak-ten", icon: "✦", title: "Десять дней рядом", description: "Поддерживай ритм 10 дней подряд", reward: 50, progress: `${Math.min(10, streak)}/10`, ready: streak >= 10 },
+    { id: "three-today", icon: "☘", title: "День заботы", description: "Выполни 3 привычки за один день", reward: 30, progress: `${Math.min(3, finishedToday)}/3`, ready: finishedToday >= 3 },
+    { id: "whole-garden", icon: "♕", title: "Весь сад улыбается", description: "Выполни сегодня все привычки", reward: 70, progress: `${finishedToday}/${plants.length}`, ready: finishedToday === plants.length },
+  ];
 
   function showCareEffect(plantId: string, kind: CareEffect) {
     setEffect({ plantId, kind });
@@ -213,14 +251,45 @@ export default function LivingPlantsPrototype() {
     showCareEffect(selected.id, "fertilizer");
   }
 
-  function upgradeGarden() {
-    if (points < UPGRADE_PRICE) {
-      setMessages((current) => ({ ...current, [selected.id]: "Ещё несколько регулярных шагов — и новая садовая табличка станет доступна." }));
+  function chooseDecoration(code: DecorationCode, price: number, name: string) {
+    if (decorationsByPlant[selected.id] === code) {
+      setMessages((current) => ({ ...current, [selected.id]: `${name} уже украшает это растение.` }));
+      setShowDecorationPicker(false);
       return;
     }
-    setPoints((current) => current - UPGRADE_PRICE);
-    setMessages((current) => ({ ...current, [selected.id]: "Новая табличка уже в саду. Твоё постоянство превращается в красоту, которую можно увидеть." }));
+    if (points < price) {
+      setMessages((current) => ({ ...current, [selected.id]: `Для украшения «${name}» нужно ещё ${price - points} ✦. Каждая выполненная привычка приносит 10 ✦.` }));
+      return;
+    }
+    setPoints((current) => current - price);
+    setDecorationsByPlant((current) => ({ ...current, [selected.id]: code }));
+    setMessages((current) => ({ ...current, [selected.id]: `${name} появилось рядом прямо сейчас. Вот во что превращается твоё постоянство.` }));
+    setShowDecorationPicker(false);
     showCareEffect(selected.id, "upgrade");
+  }
+
+  function unlockPlant(item: Species) {
+    if (!item.unlockPrice || unlockedSpecies.includes(item.code)) {
+      setNewSpecies(item.code);
+      setShowPlanting(true);
+      return;
+    }
+    if (points < item.unlockPrice) return;
+    setPoints((current) => current - item.unlockPrice!);
+    setUnlockedSpecies((current) => [...current, item.code]);
+    setNewSpecies(item.code);
+    setShowPlanting(true);
+    setMessages((current) => ({ ...current, [selected.id]: `${item.name} теперь доступна в твоём саду. Ты открыла её благодаря регулярным шагам.` }));
+  }
+
+  function claimAchievement(id: string, reward: number, title: string) {
+    if (claimedAchievements.includes(id)) return;
+    const achievement = achievements.find((item) => item.id === id);
+    if (!achievement?.ready) return;
+    setClaimedAchievements((current) => [...current, id]);
+    setPoints((current) => current + reward);
+    setMessages((current) => ({ ...current, [selected.id]: `Достижение «${title}» твоё. Ты умничка — сад дарит тебе ${reward} ✦.` }));
+    showCareEffect(selected.id, "kind");
   }
 
   function updateSelected(patch: Partial<Pick<PlantHabit, "frequency" | "reminder">>) {
@@ -309,8 +378,26 @@ export default function LivingPlantsPrototype() {
 
           <div className={styles.plantScene}>
             <span className={styles.sunGlow} aria-hidden="true" />
-            <PlantArt plant={selected} effect={effect?.plantId === selected.id ? effect.kind : undefined} />
+            <PlantArt plant={selected} effect={effect?.plantId === selected.id ? effect.kind : undefined} decoration={decorationsByPlant[selected.id]} />
             <div className={styles.growthCaption}><span>Сейчас происходит</span><strong>{growthDescriptions[selected.species][selectedFrame]}</strong></div>
+          </div>
+
+          <div className={styles.careDock}>
+            <div className={styles.careDockHeading}><span><b>Тёплая забота</b><small>эффект виден прямо на растении</small></span><strong>✦ {points}</strong></div>
+            <div className={styles.careDockActions}>
+              <button onClick={sayKindWord}><span>♡</span><b>Доброе слово</b><small>бесплатно</small></button>
+              <button onClick={nourish} disabled={points < FERTILIZER_PRICE}><span>✦</span><b>Удобрить</b><small>{FERTILIZER_PRICE} ✦</small></button>
+              <button onClick={() => setShowDecorationPicker((current) => !current)}><span>⌂</span><b>Украсить</b><small>от 40 ✦</small></button>
+            </div>
+            {showDecorationPicker && (
+              <div className={styles.decorationPicker}>
+                {decorations.map((item) => (
+                  <button key={item.code} onClick={() => chooseDecoration(item.code, item.price, item.name)} disabled={points < item.price && decorationsByPlant[selected.id] !== item.code}>
+                    <span>{item.icon}</span><b>{item.name}</b><small>{decorationsByPlant[selected.id] === item.code ? "уже в саду" : `${item.price} ✦ · ${item.detail}`}</small>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={styles.liveMessage} aria-live="polite">
@@ -350,13 +437,18 @@ export default function LivingPlantsPrototype() {
       </section>
 
       <section className={styles.supportGrid}>
-        <article className={styles.careCard}>
-          <div className={styles.cardHeading}><div><span className={styles.eyebrow}>ТЁПЛАЯ ЗАБОТА</span><h2>Поддержать растение</h2></div><b>✦ {points}</b></div>
-          <p>Рост дают только выполненные привычки. Очки постоянства можно обменять на приятные улучшения сада.</p>
-          <div className={styles.careActions}>
-            <button onClick={sayKindWord}><span>♡</span><b>Доброе слово</b><small>бесплатно</small></button>
-            <button onClick={nourish} disabled={points < FERTILIZER_PRICE}><span>✦</span><b>Удобрение</b><small>{FERTILIZER_PRICE} очков</small></button>
-            <button onClick={upgradeGarden} disabled={points < UPGRADE_PRICE}><span>⌂</span><b>Украшение сада</b><small>{UPGRADE_PRICE} очков</small></button>
+        <article className={styles.achievementsCard}>
+          <div className={styles.cardHeading}><div><span className={styles.eyebrow}>ДОСТИЖЕНИЯ САДА</span><h2>Каждое усилие замечено</h2></div><b>награды ✦</b></div>
+          <div className={styles.achievementGrid}>
+            {achievements.map((item) => {
+              const claimed = claimedAchievements.includes(item.id);
+              return (
+                <article key={item.id} className={`${styles.achievement} ${item.ready ? styles.achievementReady : ""} ${claimed ? styles.achievementClaimed : ""}`}>
+                  <span>{item.icon}</span><div><b>{item.title}</b><p>{item.description}</p><small>{claimed ? "Награда получена" : item.ready ? "Готово — забрать награду" : item.progress}</small></div>
+                  <button onClick={() => claimAchievement(item.id, item.reward, item.title)} disabled={!item.ready || claimed}>{claimed ? "✓" : `+${item.reward} ✦`}</button>
+                </article>
+              );
+            })}
           </div>
         </article>
 
@@ -366,16 +458,17 @@ export default function LivingPlantsPrototype() {
           <div className={styles.rhythmBar}><i style={{ width: `${Math.min(100, streak * 8)}%` }} /></div>
           <strong>Ты не начинаешь сначала после сложного дня.</strong>
           <p>Ты продолжаешь с того места, где остановилась. Это и есть устойчивый рост.</p>
-          <small>Следующая награда: +30 очков на 14-м дне</small>
+          <small>За достижения можно открывать редкие растения и украшения</small>
         </article>
       </section>
 
       <section className={styles.catalogSection}>
-        <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>КОГО ЕЩЁ МОЖНО ВЫРАСТИТЬ</span><h2>Цветы, плодовые и деревья</h2></div><button onClick={() => setShowPlanting(true)}>＋ Выбрать новое</button></div>
+        <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>ЛАВКА РЕДКОСТЕЙ</span><h2>Открывай растения за звёзды</h2></div><p>Обычные виды доступны сразу. Редкие пион и сакура открываются навсегда — и тоже растут через 30 настоящих стадий.</p></div>
         <div className={styles.catalogGrid}>
           {species.map((item) => {
             const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, completedDays: 29, frequency: "daily", reminder: null };
-            return <button key={item.code} onClick={() => { setNewSpecies(item.code); setShowPlanting(true); }} style={{ "--accent": item.accent } as CSSProperties}><PlantArt plant={preview} /><span><small>{item.family}</small><b>{item.name}</b><em>{item.character}</em></span></button>;
+            const unlocked = unlockedSpecies.includes(item.code);
+            return <button key={item.code} className={!unlocked ? styles.lockedSpecies : ""} onClick={() => unlockPlant(item)} disabled={!unlocked && points < (item.unlockPrice ?? 0)} style={{ "--accent": item.accent } as CSSProperties}><PlantArt plant={preview} /><span><small>{item.family}</small><b>{item.name}</b><em>{unlocked ? item.character : `Открыть навсегда · ${item.unlockPrice} ✦`}</em></span>{!unlocked && <i className={styles.lockBadge}>редкое</i>}</button>;
           })}
         </div>
       </section>
@@ -388,7 +481,7 @@ export default function LivingPlantsPrototype() {
             <button className={styles.modalClose} type="button" onClick={() => setShowPlanting(false)} aria-label="Закрыть">×</button>
             <span className={styles.eyebrow}>НОВАЯ ПРИВЫЧКА</span><h2>Посади ещё одну цель</h2><p>Выбери растение, удобный ритм и напоминание. Каждый выполненный шаг откроет один из 30 этапов.</p>
             <label className={styles.habitInput}><span>Моя привычка</span><input value={newHabit} onChange={(event) => setNewHabit(event.target.value)} autoFocus /></label>
-            <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, completedDays: 29, frequency: "daily", reminder: null }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
+            <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.filter((item) => unlockedSpecies.includes(item.code)).map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, completedDays: 29, frequency: "daily", reminder: null }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
             <fieldset><legend>Как часто</legend><div className={styles.choiceGrid}>{(Object.keys(frequencyLabels) as Frequency[]).map((frequency) => <button type="button" key={frequency} className={newFrequency === frequency ? styles.selectedChoice : ""} onClick={() => setNewFrequency(frequency)}>{frequencyLabels[frequency]}</button>)}</div></fieldset>
             <fieldset><legend>Напоминание</legend><div className={styles.choiceGrid}>{([null, "09:00", "18:30", "21:30"] as const).map((time) => <button type="button" key={time ?? "off"} className={newReminder === time ? styles.selectedChoice : ""} onClick={() => setNewReminder(time)}>{time ? `В ${time}` : "Не напоминать"}</button>)}</div></fieldset>
             <button className={styles.plantButtonModal} type="submit"><span>Посадить семечко</span><b>→</b></button>
