@@ -3,7 +3,7 @@ export const LIVING_GARDEN_VERSION = 1;
 export const LIVING_COMPLETION_REWARD = 60;
 
 export type LivingSpeciesCode = "sunflower" | "tomato" | "lavender" | "monstera" | "oak" | "apple" | "peony" | "sakura";
-export type LivingFrequency = "daily" | "weekly" | "threeWeekly";
+export type LivingFrequency = "daily" | "weekly" | "threeWeekly" | "customWeekly";
 export type LivingDecorationCode = "sign" | "lantern" | "stones";
 
 export type LivingCompletionOverride = {
@@ -23,6 +23,7 @@ export type LivingPlantHabit = {
   goalDays: number;
   rewardedGoals: number[];
   frequency: LivingFrequency;
+  timesPerWeek?: number;
   reminder: string | null;
   createdAt: string;
   completedAt: string | null;
@@ -47,7 +48,7 @@ export type LivingGardenSnapshot = {
 };
 
 const speciesCodes = new Set<LivingSpeciesCode>(["sunflower", "tomato", "lavender", "monstera", "oak", "apple", "peony", "sakura"]);
-const frequencyCodes = new Set<LivingFrequency>(["daily", "weekly", "threeWeekly"]);
+const frequencyCodes = new Set<LivingFrequency>(["daily", "weekly", "threeWeekly", "customWeekly"]);
 const achievementRewards: Record<string, number> = {
   "first-roots": 40,
   "streak-three": 25,
@@ -147,6 +148,9 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
     ? mergedCompletionOverrides(input.completionOverrides.map(cleanCompletionOverride).filter((override): override is LivingCompletionOverride => Boolean(override)))
     : [];
   const reminder = input.reminder === null ? null : cleanText(input.reminder, 5) || null;
+  const timesPerWeek = frequency === "customWeekly"
+    ? Math.min(7, Math.max(1, Math.floor(Number(input.timesPerWeek) || 1)))
+    : undefined;
   const updatedAt = cleanIso(input.updatedAt);
   const createdAt = input.createdAt
     ? cleanIso(input.createdAt)
@@ -167,7 +171,7 @@ function cleanPlant(value: unknown): LivingPlantHabit | null {
     ? [...new Set(input.rewardedGoals.map(Number).filter((goal) => Number.isInteger(goal) && goal >= 30 && goal <= habitDays))].sort((a, b) => a - b).slice(0, 12)
     : [];
   const rewardedGoals = isCompleted ? [...new Set([...sanitizedRewardedGoals, goalDays])].sort((a, b) => a - b) : sanitizedRewardedGoals;
-  return { id, habit, species, baseCompletedDays, completionDates, continuationDates, completionOverrides, goalDays, rewardedGoals, frequency, reminder, createdAt, completedAt, updatedAt };
+  return { id, habit, species, baseCompletedDays, completionDates, continuationDates, completionOverrides, goalDays, rewardedGoals, frequency, timesPerWeek, reminder, createdAt, completedAt, updatedAt };
 }
 
 function cleanPurchase(value: unknown): LivingPurchase | null {

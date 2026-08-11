@@ -30,10 +30,11 @@ function monthParts(monthKey: string) {
   return { year: Number(match[1]), month: Number(match[2]) };
 }
 
-function scheduleTarget(frequency: LivingFrequency, elapsedDays: number) {
+function scheduleTarget(frequency: LivingFrequency, elapsedDays: number, timesPerWeek = 1) {
   if (elapsedDays <= 0) return 0;
   if (frequency === "daily") return elapsedDays;
   if (frequency === "threeWeekly") return Math.ceil(elapsedDays * 3 / 7);
+  if (frequency === "customWeekly") return Math.ceil(elapsedDays * Math.min(7, Math.max(1, timesPerWeek)) / 7);
   return Math.ceil(elapsedDays / 7);
 }
 
@@ -73,7 +74,7 @@ export function buildMonthlyGardenStatistic(plants: LivingPlantHabit[], monthKey
       : trackingStarted < monthStart
         ? elapsedDays
         : Math.max(0, elapsedDays - Number(trackingStarted.slice(8, 10)) + 1);
-    const target = Math.min(remainingAtStart, scheduleTarget(plant.frequency, eligibleDays));
+    const target = Math.min(remainingAtStart, scheduleTarget(plant.frequency, eligibleDays, plant.timesPerWeek));
     const completed = dates.length;
     const missed = Math.max(0, target - completed);
     const rate = target > 0 ? Math.min(100, Math.round(completed / target * 100)) : completed > 0 ? 100 : 0;

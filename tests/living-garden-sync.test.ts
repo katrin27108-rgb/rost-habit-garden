@@ -54,6 +54,20 @@ test("restores the previous completedDays format", () => {
   assert.equal(completedDaysFor(restored.plants[0]), 7);
 });
 
+test("keeps a custom weekly rhythm and reminder time", () => {
+  const restored = sanitizeLivingGardenSnapshot({
+    version: 1,
+    plants: [{ ...plant(), frequency: "customWeekly", timesPerWeek: 5, reminder: "07:45" }],
+    claimedAchievements: [],
+    purchases: [],
+  });
+
+  assert.ok(restored);
+  assert.equal(restored.plants[0].frequency, "customWeekly");
+  assert.equal(restored.plants[0].timesPerWeek, 5);
+  assert.equal(restored.plants[0].reminder, "07:45");
+});
+
 test("combines completion dates made on two devices", () => {
   const computer = snapshot([plant({ completionDates: ["2026-08-10"] })]);
   const phone = snapshot([plant({ completionDates: ["2026-08-11"], updatedAt: "2026-08-11T10:00:00.000Z" })]);

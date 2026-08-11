@@ -63,6 +63,14 @@ type HabitTip = {
   takeaway: string;
 };
 
+type HabitIdea = {
+  category: "ЗДОРОВЬЕ" | "САМОРАЗВИТИЕ" | "МАЛЕНЬКИЕ РАДОСТИ";
+  icon: string;
+  title: string;
+  detail: string;
+  starter: string;
+};
+
 const TOTAL_STAGES = 30;
 const MAX_GOAL_DAYS = 360;
 const FERTILIZER_PRICE = 25;
@@ -100,7 +108,24 @@ const frequencyLabels: Record<Frequency, string> = {
   daily: "Каждый день",
   weekly: "Раз в неделю",
   threeWeekly: "3 раза в неделю",
+  customWeekly: "Свой ритм",
 };
+
+const habitIdeas: HabitIdea[] = [
+  { category: "ЗДОРОВЬЕ", icon: "☀️", title: "Выйти на дневной свет", detail: "Небольшая прогулка или несколько минут у окна помогают мягко переключиться в новый день.", starter: "Выйти на улицу на 5 минут" },
+  { category: "ЗДОРОВЬЕ", icon: "🥗", title: "Добавить один полезный продукт", detail: "Не менять весь рацион сразу, а положить к привычному обеду фрукт, овощ или горсть орехов.", starter: "Добавить овощ к сегодняшнему обеду" },
+  { category: "САМОРАЗВИТИЕ", icon: "📖", title: "Прочитать две страницы", detail: "Маленький объём оставляет место для любопытства и не превращает чтение в экзамен.", starter: "Прочитать две страницы книги" },
+  { category: "САМОРАЗВИТИЕ", icon: "✍️", title: "Записать одну мысль", detail: "Короткая заметка помогает услышать себя и заметить, что уже меняется.", starter: "Записать одну мысль перед сном" },
+  { category: "МАЛЕНЬКИЕ РАДОСТИ", icon: "🎶", title: "Включить любимую песню", detail: "Свяжи простое действие с тем, что уже приятно: так возвращаться к нему легче.", starter: "Послушать одну любимую песню без телефона в руках" },
+  { category: "МАЛЕНЬКИЕ РАДОСТИ", icon: "🌿", title: "Устроить пять минут тишины", detail: "Небольшая пауза без цели тоже может стать заботой о себе.", starter: "Посидеть пять минут с чаем" },
+];
+
+const coachingQuestions = [
+  "Как изменится твой обычный день, если эта привычка станет его естественной частью?",
+  "Что в этой привычке уже сейчас может быть приятным именно для тебя?",
+  "Какой самый маленький шаг всё равно будет честным движением вперёд?",
+  "По какому признаку ты поймёшь через месяц, что выбрала важное для себя направление?",
+];
 
 const habitTips: HabitTip[] = [
   {
@@ -307,7 +332,7 @@ function PlantArt({ plant, effect, decoration, className = "" }: { plant: PlantH
       <GrowthFrame plant={plant} />
       {decoration === "sign" && <span className={styles.gardenSign} aria-hidden="true"><i>расти<br />бережно</i></span>}
       {decoration === "lantern" && <span className={styles.gardenLantern} aria-hidden="true"><i /></span>}
-      {decoration === "stones" && <span className={styles.stonePath} aria-hidden="true"><i /><i /><i /><i /></span>}
+      {decoration === "stones" && <span className={styles.stonePath} aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>}
       {effect === "fertilizer" && <span className={styles.fertilizerDust} aria-hidden="true">✦ ✧ ✦</span>}
       {effect === "kind" && <span className={styles.kindHearts} aria-hidden="true">♡ ♡ ♡</span>}
       {effect === "upgrade" && <span className={styles.upgradeGlow} aria-hidden="true">✦</span>}
@@ -338,9 +363,14 @@ export default function LivingPlantsPrototype() {
   const [newSpecies, setNewSpecies] = useState<SpeciesCode>("apple");
   const [newFrequency, setNewFrequency] = useState<Frequency>("daily");
   const [newGoalDays, setNewGoalDays] = useState(30);
+  const [customGoalDays, setCustomGoalDays] = useState(false);
+  const [newTimesPerWeek, setNewTimesPerWeek] = useState(2);
   const [newReminder, setNewReminder] = useState<string | null>("09:00");
-  const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics" | "tips">("garden");
+  const [customReminderTime, setCustomReminderTime] = useState("09:00");
+  const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics" | "tips" | "ideas">("garden");
   const [statisticsMonth, setStatisticsMonth] = useState(() => livingMonthKey());
+  const [pointsNotice, setPointsNotice] = useState<{ amount: number; text: string } | null>(null);
+  const [returnReminder, setReturnReminder] = useState(false);
   const carouselTouchStart = useRef<number | null>(null);
 
   const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases, deletedPlantIds }), [claimedAchievements, deletedPlantIds, plants, purchases]);
@@ -376,22 +406,22 @@ export default function LivingPlantsPrototype() {
   const longestConfirmedGoal = Math.max(0, ...plants.flatMap((plant) => plant.rewardedGoals));
   const earnedAchievementIds = new Set(livingGardenAchievementIds(snapshot));
   const dailyAchievements = [
-    { id: `daily:one:${today}`, icon: "☀", title: "Первый шаг дня", description: "Подтверди хотя бы одну привычку сегодня", progress: `${Math.min(1, finishedToday)}/1` },
-    { id: `daily:three:${today}`, icon: "☘", title: "Три ростка за день", description: "Поддержи сегодня три разных растения", progress: `${Math.min(3, finishedToday)}/3` },
-    { id: `daily:five:${today}`, icon: "✦", title: "Сад в полном цвету", description: "Сделай пять отметок за один день", progress: `${Math.min(5, finishedToday)}/5` },
+     { id: `daily:one:${today}`, icon: "☀️", title: "Первый шаг дня", description: "Подтверди хотя бы одну привычку сегодня", progress: `${Math.min(1, finishedToday)}/1` },
+     { id: `daily:three:${today}`, icon: "🌿", title: "Три ростка за день", description: "Поддержи сегодня три разных растения", progress: `${Math.min(3, finishedToday)}/3` },
+     { id: `daily:five:${today}`, icon: "✨", title: "Сад в полном цвету", description: "Сделай пять отметок за один день", progress: `${Math.min(5, finishedToday)}/5` },
   ].map((item) => ({ ...item, reward: livingAchievementReward(item.id), earned: earnedAchievementIds.has(item.id) }));
   const globalAchievements = [
-    { id: "first-roots", icon: "❧", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", progress: `${Math.min(20, maxCompletedDays)}/20` },
-    { id: "streak-three", icon: "≈", title: "Ритм найден", description: "Возвращайся в сад 3 дня подряд", progress: `${Math.min(3, longestStreak)}/3` },
-    { id: "streak-ten", icon: "✦", title: "Десять дней рядом", description: "Поддерживай ритм 10 дней подряд", progress: `${Math.min(10, longestStreak)}/10` },
-    { id: "actions-ten", icon: "10", title: "Первые десять шагов", description: "Сделай 10 подтверждённых отметок", progress: `${Math.min(10, totalConfirmedActions)}/10` },
-    { id: "actions-thirty", icon: "30", title: "Месяц живых действий", description: "Сделай 30 подтверждённых отметок", progress: `${Math.min(30, totalConfirmedActions)}/30` },
-    { id: "actions-hundred", icon: "100", title: "Сотня добрых шагов", description: "Собери 100 настоящих выполнений", progress: `${Math.min(100, totalConfirmedActions)}/100` },
-    { id: "first-success", icon: "♕", title: "Первое взрослое растение", description: "Заверши первый выбранный срок", progress: `${Math.min(1, successfulPlantsCount)}/1` },
-    { id: "three-successes", icon: "♕", title: "Сад достижений", description: "Сохрани три взрослых растения", progress: `${Math.min(3, successfulPlantsCount)}/3` },
-    { id: "four-species", icon: "❉", title: "Ботаническое разнообразие", description: "Посади четыре разных вида", progress: `${Math.min(4, distinctSpeciesCount)}/4` },
-    { id: "long-path", icon: "∞", title: "Глубокие корни", description: "Продолжи одну привычку до 60 отметок", progress: `${Math.min(60, longestConfirmedGoal)}/60` },
-    { id: "garden-decorator", icon: "⌂", title: "Хранитель сада", description: "Укрась три разных растения", progress: `${Math.min(3, decoratedPlantsCount)}/3` },
+    { id: "first-roots", icon: "🌱", title: "Крепкие корни", description: "Доведи любое растение до 20-го этапа", progress: `${Math.min(20, maxCompletedDays)}/20` },
+    { id: "streak-three", icon: "🍃", title: "Ритм найден", description: "Возвращайся в сад 3 дня подряд", progress: `${Math.min(3, longestStreak)}/3` },
+    { id: "streak-ten", icon: "🌳", title: "Десять дней рядом", description: "Поддерживай ритм 10 дней подряд", progress: `${Math.min(10, longestStreak)}/10` },
+    { id: "actions-ten", icon: "🌼", title: "Первые десять шагов", description: "Сделай 10 подтверждённых отметок", progress: `${Math.min(10, totalConfirmedActions)}/10` },
+    { id: "actions-thirty", icon: "💐", title: "Месяц живых действий", description: "Сделай 30 подтверждённых отметок", progress: `${Math.min(30, totalConfirmedActions)}/30` },
+    { id: "actions-hundred", icon: "🌟", title: "Сотня добрых шагов", description: "Собери 100 настоящих выполнений", progress: `${Math.min(100, totalConfirmedActions)}/100` },
+    { id: "first-success", icon: "🌸", title: "Первое взрослое растение", description: "Заверши первый выбранный срок", progress: `${Math.min(1, successfulPlantsCount)}/1` },
+    { id: "three-successes", icon: "🌺", title: "Сад достижений", description: "Сохрани три взрослых растения", progress: `${Math.min(3, successfulPlantsCount)}/3` },
+    { id: "four-species", icon: "🌈", title: "Ботаническое разнообразие", description: "Посади четыре разных вида", progress: `${Math.min(4, distinctSpeciesCount)}/4` },
+    { id: "long-path", icon: "🪴", title: "Глубокие корни", description: "Продолжи одну привычку до 60 отметок", progress: `${Math.min(60, longestConfirmedGoal)}/60` },
+    { id: "garden-decorator", icon: "🪷", title: "Хранитель сада", description: "Укрась три разных растения", progress: `${Math.min(3, decoratedPlantsCount)}/3` },
   ].map((item) => ({ ...item, reward: livingAchievementReward(item.id), earned: earnedAchievementIds.has(item.id) }));
 
   useEffect(() => {
@@ -439,6 +469,18 @@ export default function LivingPlantsPrototype() {
     void restoreAndConnect();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const lastVisit = Number(localStorage.getItem("rost-living-garden-last-visit") ?? 0);
+    if (lastVisit && Date.now() - lastVisit >= 3 * 86_400_000) queueMicrotask(() => setReturnReminder(true));
+    localStorage.setItem("rost-living-garden-last-visit", String(Date.now()));
+  }, []);
+
+  useEffect(() => {
+    if (!pointsNotice) return;
+    const timeout = window.setTimeout(() => setPointsNotice(null), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [pointsNotice]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -496,7 +538,10 @@ export default function LivingPlantsPrototype() {
     const reachedMaturity = !checked && completedDaysFor(plant) < TOTAL_STAGES && completedDaysFor(updatedPlant) >= TOTAL_STAGES;
     const visualStageChanged = completedDaysFor(plant) !== completedDaysFor(updatedPlant);
     const saveToggle = () => {
-      setPlants((current) => current.map((item) => item.id === plantId ? updatedPlant : item));
+      const nextPlants = plants.map((item) => item.id === plantId ? updatedPlant : item);
+      const nextSnapshot: LivingGardenSnapshot = { ...snapshot, plants: nextPlants };
+      const pointsGained = !checked ? livingGardenPoints(nextSnapshot) - points : 0;
+      setPlants(nextPlants);
       setMessages((current) => ({
         ...current,
         [plantId]: checked
@@ -509,6 +554,9 @@ export default function LivingPlantsPrototype() {
               ? praiseMessages[completedDaysFor(updatedPlant) % praiseMessages.length]
               : `Ещё одно повторение укрепляет знакомый ритм. Уже ${nextHabitDays} из ${plant.goalDays} шагов.`,
       }));
+      if (pointsGained > 0) {
+        setPointsNotice({ amount: pointsGained, text: pointsGained > 10 ? "Новая награда открылась вместе с этой отметкой." : "Эта выполненная привычка добавила жизни саду." });
+      }
       if (checked) setCompletionCelebration((current) => current?.id === plantId ? null : current);
       if (reachedGoal) setCompletionCelebration(updatedPlant);
     };
@@ -581,10 +629,6 @@ export default function LivingPlantsPrototype() {
     setMessages((current) => ({ ...current, [selected.id]: `${item.name} теперь доступна в твоём саду. Ты открыла её благодаря регулярным шагам.` }));
   }
 
-  function updateSelected(patch: Partial<Pick<PlantHabit, "frequency" | "reminder">>) {
-    setPlants((current) => current.map((plant) => plant.id === selected.id ? { ...plant, ...patch, updatedAt: new Date().toISOString() } : plant));
-  }
-
   function deletePlant(plantId: string) {
     const remainingPlants = plants.filter((plant) => plant.id !== plantId);
     setDeletedPlantIds((current) => [...new Set([...current, plantId])]);
@@ -623,7 +667,8 @@ export default function LivingPlantsPrototype() {
       goalDays: newGoalDays,
       rewardedGoals: [],
       frequency: newFrequency,
-      reminder: newReminder,
+      timesPerWeek: newFrequency === "customWeekly" ? newTimesPerWeek : undefined,
+      reminder: newReminder === "custom" ? customReminderTime : newReminder,
       createdAt: new Date().toISOString(),
       completedAt: null,
       updatedAt: new Date().toISOString(),
@@ -666,7 +711,11 @@ export default function LivingPlantsPrototype() {
         <button type="button" role="tab" aria-selected={activeView === "successes"} className={activeView === "successes" ? styles.activeViewTab : ""} onClick={() => setActiveView("successes")}><span>♕</span> Сад успехов <b>{completedPlants.length}</b></button>
         <button type="button" role="tab" aria-selected={activeView === "statistics"} className={activeView === "statistics" ? styles.activeViewTab : ""} onClick={() => setActiveView("statistics")}><span>◫</span> Статистика</button>
         <button type="button" role="tab" aria-selected={activeView === "tips"} className={activeView === "tips" ? styles.activeViewTab : ""} onClick={() => setActiveView("tips")}><span>✦</span> Подсказки</button>
+        <button type="button" role="tab" aria-selected={activeView === "ideas"} className={activeView === "ideas" ? styles.activeViewTab : ""} onClick={() => setActiveView("ideas")}><span>✿</span> Идеи привычек</button>
       </nav>
+
+      {returnReminder && <aside className={styles.returnReminder} role="status"><div><span>🌿</span><p><b>Сад соскучился по тебе</b><small>Загляни в маленькие хитрости — выбери всего одну идею для сегодняшнего дня.</small></p></div><button type="button" onClick={() => { setReturnReminder(false); setActiveView("tips"); }}>Открыть подсказки</button><button type="button" onClick={() => setReturnReminder(false)} aria-label="Закрыть напоминание">×</button></aside>}
+      {pointsNotice && <div className={styles.pointsNotice} role="status" aria-live="polite"><span>✦</span><div><b>Очки начислены</b><small>{pointsNotice.text}</small></div><strong>+{pointsNotice.amount} ✦</strong></div>}
 
       {activeView === "garden" ? <>
       <section className={styles.workspace} aria-label="Мой сад сегодня">
@@ -698,9 +747,9 @@ export default function LivingPlantsPrototype() {
                 >
                   <span className={styles.checkCircle}>{checked ? "✓" : ""}</span>
                   <span className={styles.habitCopy}>
-                    <small>{itemSpecies.name} · {frequencyLabels[plant.frequency]} · цель {plant.goalDays}</small>
+                    <small>{itemSpecies.name} · цель {plant.goalDays} отметок</small>
                     <strong>{plant.habit}</strong>
-                    <em>{plant.reminder ? `Напомнить в ${plant.reminder}` : "Без напоминания"}</em>
+                    <em>{completedDaysFor(plant) >= TOTAL_STAGES ? "Растение взрослеет" : "Нажми, чтобы отметить шаг"}</em>
                   </span>
                   <span className={styles.rowStage}>{completedDaysFor(plant) >= TOTAL_STAGES ? habitDaysFor(plant) : frameFor(plant) + 1}<small>/{completedDaysFor(plant) >= TOTAL_STAGES ? plant.goalDays : 30}</small></span>
                 </button>
@@ -806,16 +855,9 @@ export default function LivingPlantsPrototype() {
             {selected.goalDays > TOTAL_STAGES && <div className={styles.continuationProgress}><span><b>Закрепление привычки</b><small>{habitDaysFor(selected)} из {selected.goalDays} отметок</small></span><i><b style={{ width: `${Math.min(100, habitDaysFor(selected) / selected.goalDays * 100)}%` }} /></i></div>}
           </div>
 
-          {habitDaysFor(selected) >= selected.goalDays ? (
-            <div className={styles.completedPlantNotice}><span>♕</span><div><b>Цель в {selected.goalDays} отметок завершена</b><small>{latestGoalDateLabel(selected)} · успех сохранён</small></div><div className={styles.completedNoticeActions}>{selected.goalDays < MAX_GOAL_DAYS && <button type="button" onClick={() => extendHabit(selected.id)}>Продолжить ещё 30</button>}<button type="button" onClick={() => setActiveView("successes")}>Сад успехов</button></div></div>
-          ) : (
-            <div className={styles.scheduleSettings}>
-              <label><span>Ритм привычки</span><select value={selected.frequency} onChange={(event) => updateSelected({ frequency: event.target.value as Frequency })}><option value="daily">Каждый день</option><option value="threeWeekly">3 раза в неделю</option><option value="weekly">Раз в неделю</option></select></label>
-              <label><span>Напоминание</span><select value={selected.reminder ?? "off"} onChange={(event) => updateSelected({ reminder: event.target.value === "off" ? null : event.target.value })}><option value="off">Не напоминать</option><option value="09:00">В 09:00</option><option value="18:30">В 18:30</option><option value="21:30">В 21:30</option></select></label>
-            </div>
-          )}
+          {habitDaysFor(selected) >= selected.goalDays && <div className={styles.completedPlantNotice}><span>♕</span><div><b>Цель в {selected.goalDays} отметок завершена</b><small>{latestGoalDateLabel(selected)} · успех сохранён</small></div><div className={styles.completedNoticeActions}>{selected.goalDays < MAX_GOAL_DAYS && <button type="button" onClick={() => extendHabit(selected.id)}>Продолжить ещё 30</button>}<button type="button" onClick={() => setActiveView("successes")}>Сад успехов</button></div></div>}
           <div className={styles.habitManagement}>
-            <span><b>Управление привычкой</b><small>Повторное нажатие на галочку отменяет сегодняшнюю отметку.</small></span>
+            <span><b>Управление привычкой</b><small>Ритм, срок и напоминание выбираются при посадке. Отметку можно отменить повторным нажатием.</small></span>
             <button type="button" onClick={() => setPlantToDelete(selected)}>Удалить привычку</button>
           </div>
           </>}
@@ -840,7 +882,7 @@ export default function LivingPlantsPrototype() {
 
       <section className={styles.supportGrid}>
         <article className={styles.achievementsCard}>
-          <div className={styles.cardHeading}><div><span className={styles.eyebrow}>ДОСТИЖЕНИЯ САДА</span><h2>Каждое усилие замечено</h2></div><b>начисляются сами ✦</b></div>
+          <div className={styles.cardHeading}><div><span className={styles.eyebrow}>Каждое усилие замечено</span><h2>Достижения сада</h2></div><b>начисляются сами ✦</b></div>
           <div className={styles.achievementGroupHeading}><span>СЕГОДНЯ</span><p>Каждый новый день — новая возможность получить эти награды.</p></div>
           <div className={`${styles.achievementGrid} ${styles.dailyAchievementGrid}`}>
             {dailyAchievements.map((item) => (
@@ -993,7 +1035,7 @@ export default function LivingPlantsPrototype() {
             </div>
           </section>
         </section>
-      ) : (
+      ) : activeView === "tips" ? (
         <section className={styles.tipsSection} role="tabpanel" aria-label="Подсказки для устойчивых привычек">
           <div className={styles.tipsHero}>
             <div className={styles.tipsHeroCopy}>
@@ -1051,6 +1093,16 @@ export default function LivingPlantsPrototype() {
             </nav>
           </aside>
         </section>
+      ) : (
+        <section className={styles.ideasSection} role="tabpanel" aria-label="Идеи полезных привычек">
+          <div className={styles.ideasHero}>
+            <div><span className={styles.eyebrow}>ИДЕИ ДЛЯ ТВОЕЙ ЖИЗНИ</span><h1>Не обязательно начинать с большой цели</h1><p>Выбери то, что хочется попробовать именно сейчас: для здоровья, саморазвития или маленькой радости. Одной идеи достаточно.</p></div>
+            <div className={styles.questionCard}><span>ВОПРОС ДЛЯ СЕБЯ</span><p>{coachingQuestions[totalConfirmedActions % coachingQuestions.length]}</p></div>
+          </div>
+          <div className={styles.ideasHeading}><div><span className={styles.eyebrow}>КОЛЛЕКЦИЯ ИДЕЙ</span><h2>Привычки, которые можно примерить</h2></div><p>Нажми на карточку — она подставит мягкий старт в форму новой привычки.</p></div>
+          <div className={styles.ideasGrid}>{habitIdeas.map((idea) => <article className={styles.ideaCard} key={idea.title}><div className={styles.ideaIcon}>{idea.icon}</div><span>{idea.category}</span><h2>{idea.title}</h2><p>{idea.detail}</p><button type="button" onClick={() => { setNewHabit(idea.starter); setShowPlanting(true); }}>Взять как идею <b>→</b></button></article>)}</div>
+          <section className={styles.coachingSection}><div><span className={styles.eyebrow}>КОУЧИНГОВЫЕ ВОПРОСЫ</span><h2>Остановиться и услышать себя</h2><p>Ответ не обязан быть идеальным. Иногда хорошая привычка начинается с одного честного вопроса.</p></div><div className={styles.questionList}>{coachingQuestions.map((question, index) => <article key={question}><span>0{index + 1}</span><p>{question}</p></article>)}</div></section>
+        </section>
       )}
 
       <footer className={styles.footer}><span>«Рост» · мой живой сад</span><p>Каждая отметка связана с отдельным физиологическим этапом растения. Поддержка — без давления, прогресс — без наказания.</p><Link href="/">Вернуться на главную</Link></footer>
@@ -1095,9 +1147,9 @@ export default function LivingPlantsPrototype() {
             <span className={styles.eyebrow}>НОВАЯ ПРИВЫЧКА</span><h2>Посади ещё одну цель</h2><p>Выбери растение, удобный ритм и первый срок. Растение проходит 30 видимых этапов роста, а дальнейшие повторения помогают привычке закрепляться.</p>
             <label className={styles.habitInput}><span>Моя привычка</span><input value={newHabit} onChange={(event) => setNewHabit(event.target.value)} autoFocus /></label>
             <fieldset><legend>Растение или дерево</legend><div className={styles.speciesGrid}>{species.filter((item) => unlockedSpecies.includes(item.code)).map((item) => { const preview: PlantHabit = { id: item.code, habit: item.name, species: item.code, baseCompletedDays: 29, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "daily", reminder: null, createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT }; return <button type="button" key={item.code} className={newSpecies === item.code ? styles.selectedChoice : ""} onClick={() => setNewSpecies(item.code)}><PlantArt plant={preview} /><b>{item.name}</b><small>{item.family}</small></button>; })}</div></fieldset>
-            <fieldset><legend>Как часто</legend><div className={styles.choiceGrid}>{(Object.keys(frequencyLabels) as Frequency[]).map((frequency) => <button type="button" key={frequency} className={newFrequency === frequency ? styles.selectedChoice : ""} onClick={() => setNewFrequency(frequency)}>{frequencyLabels[frequency]}</button>)}</div></fieldset>
-            <fieldset><legend>Первый срок</legend><div className={styles.choiceGrid}>{[30, 60, 90].map((days) => <button type="button" key={days} className={newGoalDays === days ? styles.selectedChoice : ""} onClick={() => setNewGoalDays(days)}><b>{days} дней</b><small>{days === 30 ? "первый цикл" : days === 60 ? "больше повторений" : "мягкое закрепление"}</small></button>)}</div></fieldset>
-            <fieldset><legend>Напоминание</legend><div className={styles.choiceGrid}>{([null, "09:00", "18:30", "21:30"] as const).map((time) => <button type="button" key={time ?? "off"} className={newReminder === time ? styles.selectedChoice : ""} onClick={() => setNewReminder(time)}>{time ? `В ${time}` : "Не напоминать"}</button>)}</div></fieldset>
+             <fieldset><legend>Как часто</legend><div className={styles.choiceGrid}>{(Object.keys(frequencyLabels) as Frequency[]).map((frequency) => <button type="button" key={frequency} className={newFrequency === frequency ? styles.selectedChoice : ""} onClick={() => setNewFrequency(frequency)}>{frequencyLabels[frequency]}{frequency === "customWeekly" && <small>от 1 до 7 раз</small>}</button>)}</div>{newFrequency === "customWeekly" && <label className={styles.customField}><span>Сколько раз в неделю?</span><input type="number" min="1" max="7" value={newTimesPerWeek} onChange={(event) => setNewTimesPerWeek(Math.min(7, Math.max(1, Number(event.target.value) || 1)))} /></label>}</fieldset>
+             <fieldset><legend>Первый срок</legend><div className={styles.choiceGrid}>{[30, 60, 90].map((days) => <button type="button" key={days} className={!customGoalDays && newGoalDays === days ? styles.selectedChoice : ""} onClick={() => { setCustomGoalDays(false); setNewGoalDays(days); }}><b>{days} дней</b><small>{days === 30 ? "первый цикл" : days === 60 ? "больше повторений" : "мягкое закрепление"}</small></button>)}<button type="button" className={customGoalDays ? styles.selectedChoice : ""} onClick={() => setCustomGoalDays(true)}><b>Свой срок</b><small>от 30 до 360 дней</small></button></div>{customGoalDays && <label className={styles.customField}><span>Сколько дней?</span><input type="number" min="30" max="360" value={newGoalDays} onChange={(event) => setNewGoalDays(Math.min(360, Math.max(30, Number(event.target.value) || 30)))} /></label>}</fieldset>
+             <fieldset><legend>Напоминание</legend><div className={styles.choiceGrid}>{([null, "09:00", "18:30", "21:30", "custom"] as const).map((time) => <button type="button" key={time ?? "off"} className={newReminder === time ? styles.selectedChoice : ""} onClick={() => setNewReminder(time)}>{time === null ? "Не напоминать" : time === "custom" ? "Своё время" : `В ${time}`}</button>)}</div>{newReminder === "custom" && <label className={styles.customField}><span>Во сколько напомнить?</span><input type="time" value={customReminderTime} onChange={(event) => setCustomReminderTime(event.target.value)} /></label>}</fieldset>
             <button className={styles.plantButtonModal} type="submit"><span>Посадить семечко</span><b>→</b></button>
           </form>
         </div>

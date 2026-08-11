@@ -23,6 +23,16 @@ test("builds a current-month summary without treating future days as missed", ()
   assert.equal(result.days[10].isFuture, true);
 });
 
+test("uses the requested number of weekly repetitions", () => {
+  const result = buildMonthlyGardenStatistic([
+    { ...plant("custom", "customWeekly", ["2026-08-02", "2026-08-04", "2026-08-08"]), timesPerWeek: 5 },
+  ], "2026-08", "2026-08-10");
+
+  assert.equal(result.plants[0].target, 8);
+  assert.equal(result.plants[0].completed, 3);
+  assert.equal(result.plants[0].missed, 5);
+});
+
 test("limits the monthly target when a plant reaches all 30 stages", () => {
   const result = buildMonthlyGardenStatistic([
     plant("almost-grown", "daily", ["2026-07-28", "2026-08-01"], 28),
