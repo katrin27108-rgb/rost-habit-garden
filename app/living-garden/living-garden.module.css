@@ -408,7 +408,7 @@
 .tipsHeroCopy::after { left:-45px; bottom:-80px; transform:rotate(-28deg); }
 .tipsHeroCopy > * { position:relative; z-index:1; }
 .tipsHeroCopy .eyebrow { color:#d9cc91; }
-.tipsHeroCopy h1 { margin:15px 0 20px; font:500 clamp(39px,4.6vw,66px)/.98 Georgia,serif; letter-spacing:-.052em; }
+.tipsHeroCopy h1 { margin:15px 0 20px; color:#fffaf0; font:500 clamp(39px,4.6vw,66px)/.98 Georgia,serif; letter-spacing:-.052em; }
 .tipsHeroCopy > p { max-width:570px; margin:0; color:#ced9d3; font:400 15px/1.7 Georgia,serif; }
 .tipPrinciples { margin-top:30px; display:flex; flex-wrap:wrap; gap:7px; }
 .tipPrinciples span { padding:8px 11px; border:1px solid rgba(255,255,255,.14); border-radius:100px; background:rgba(255,255,255,.06); color:#e1e7df; font-size:9px; font-weight:800; letter-spacing:.05em; }
@@ -676,8 +676,8 @@
   .syncButton { padding:8px 10px; }
   .accountBadge { max-width:230px; }
   .accountBadge > span { max-width:125px; }
-  .viewTabs { margin-top:12px; overflow-x:auto; }
-  .viewTabs button { min-width:112px; flex:0 0 auto; padding:0 9px; }
+  .viewTabs { margin-top:12px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; overflow:visible; }
+  .viewTabs button { min-width:0; width:100%; min-height:44px; padding:0 6px; }
   .viewTabs button > b { display:none; }
   .workspace { padding-top:22px; }
   .habitsPanel,.plantStage { padding:20px 16px; border-radius:23px; }
