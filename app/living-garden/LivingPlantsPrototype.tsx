@@ -93,13 +93,7 @@ const decorations: { code: DecorationCode; name: string; detail: string; price: 
   { code: "stones", name: "Тропинка из камней", detail: "Ляжет полукругом перед растением", price: 75, icon: "•••" },
 ];
 
-const initialPlants: PlantHabit[] = [
-  { id: "walk", habit: "Гулять 30 минут", species: "sunflower", baseCompletedDays: 11, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "daily", reminder: "18:30", createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT },
-  { id: "read", habit: "Читать перед сном", species: "lavender", baseCompletedDays: 7, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "daily", reminder: "21:30", createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT },
-  { id: "water", habit: "Пить достаточно воды", species: "monstera", baseCompletedDays: 22, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "daily", reminder: "09:00", createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT },
-  { id: "reflect", habit: "Подводить итоги недели", species: "oak", baseCompletedDays: 15, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "weekly", reminder: "18:30", createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT },
-  { id: "vegetables", habit: "Добавлять овощи в обед", species: "tomato", baseCompletedDays: 19, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "threeWeekly", reminder: null, createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT },
-];
+const initialPlants: PlantHabit[] = [];
 
 const emptyPlant: PlantHabit = { id: "empty", habit: "Посади первую привычку", species: "sunflower", baseCompletedDays: 0, completionDates: [], continuationDates: [], goalDays: 30, rewardedGoals: [], frequency: "daily", reminder: null, createdAt: INITIAL_UPDATED_AT, completedAt: null, updatedAt: INITIAL_UPDATED_AT };
 const initialSnapshot: LivingGardenSnapshot = { version: LIVING_GARDEN_VERSION, plants: initialPlants, claimedAchievements: [], purchases: [], deletedPlantIds: [] };
@@ -342,7 +336,7 @@ function PlantArt({ plant, effect, decoration, className = "" }: { plant: PlantH
 
 export default function LivingPlantsPrototype() {
   const [plants, setPlants] = useState(initialPlants);
-  const [selectedId, setSelectedId] = useState(initialPlants[0].id);
+  const [selectedId, setSelectedId] = useState(emptyPlant.id);
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [effect, setEffect] = useState<{ plantId: string; kind: CareEffect } | null>(null);
   const [showDecorationPicker, setShowDecorationPicker] = useState(false);
@@ -358,6 +352,7 @@ export default function LivingPlantsPrototype() {
   const [isSaving, setIsSaving] = useState(false);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [cleanStartPreview, setCleanStartPreview] = useState(false);
   const [cloudReady, setCloudReady] = useState(false);
   const [newHabit, setNewHabit] = useState("Утренняя разминка");
   const [newSpecies, setNewSpecies] = useState<SpeciesCode>("apple");
@@ -428,7 +423,18 @@ export default function LivingPlantsPrototype() {
     let cancelled = false;
     const restoreAndConnect = async () => {
       await Promise.resolve();
+      const isCleanStart = new URLSearchParams(window.location.search).get("start") === "empty";
+      setCleanStartPreview(isCleanStart);
       let localSnapshot = initialSnapshot;
+      if (isCleanStart) {
+        setPlants([]);
+        setClaimedAchievements([]);
+        setPurchases([]);
+        setDeletedPlantIds([]);
+        setHydrated(true);
+        setSyncStatus("signed-out");
+        return;
+      }
       try {
         const saved = localStorage.getItem(LIVING_GARDEN_STORAGE_KEY);
         const restored = saved ? sanitizeLivingGardenSnapshot(JSON.parse(saved)) : null;
@@ -483,7 +489,7 @@ export default function LivingPlantsPrototype() {
   }, [pointsNotice]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || cleanStartPreview) return;
     try {
       localStorage.setItem(LIVING_GARDEN_STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -715,6 +721,7 @@ export default function LivingPlantsPrototype() {
       </nav>
 
       {returnReminder && <aside className={styles.returnReminder} role="status"><div><span>🌿</span><p><b>Сад соскучился по тебе</b><small>Загляни в маленькие хитрости — выбери всего одну идею для сегодняшнего дня.</small></p></div><button type="button" onClick={() => { setReturnReminder(false); setActiveView("tips"); }}>Открыть подсказки</button><button type="button" onClick={() => setReturnReminder(false)} aria-label="Закрыть напоминание">×</button></aside>}
+      {cleanStartPreview && <aside className={styles.startPreviewNotice} role="status"><span>✦</span><p><b>Стартовый просмотр</b><small>Сад пока пуст — посади первую привычку и посмотри, как начинается рост.</small></p></aside>}
       {pointsNotice && <div className={styles.pointsNotice} role="status" aria-live="polite"><span>✦</span><div><b>Очки начислены</b><small>{pointsNotice.text}</small></div><strong>+{pointsNotice.amount} ✦</strong></div>}
 
       {activeView === "garden" ? <>

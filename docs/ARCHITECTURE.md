@@ -133,3 +133,4 @@ flowchart LR
 - API проверяет авторизацию и входные данные до обращения к D1.
 - Локальная запись выполняется раньше сетевой синхронизации.
 - Изменение сохранённой модели требует миграции старых локальных и серверных данных.
+- The public `/living-garden` route starts new visitors with an empty garden. `?start=empty` provides a non-destructive clean-start preview that skips local/cloud restoration and persistence.

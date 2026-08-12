@@ -48,6 +48,12 @@
 .viewTabs button.activeViewTab span { color: #e8cf7d; }
 .viewTabs button.activeViewTab > b { background:rgba(255,255,255,.14); color:#f1dc91; }
 .returnReminder,.pointsNotice { position:relative; z-index:4; width:min(100% - 44px,920px); margin:13px auto 0; border-radius:19px; box-shadow:0 14px 38px rgba(40,67,51,.1); }
+.startPreviewNotice { position:relative; z-index:4; width:min(100% - 44px,920px); margin:13px auto 0; padding:12px 16px; display:flex; align-items:center; gap:11px; border:1px solid #d8c78f; border-radius:19px; background:linear-gradient(110deg,#fff8dc,#fffdf4); color:#625126; box-shadow:0 14px 38px rgba(40,67,51,.08); }
+.startPreviewNotice > span { width:34px; height:34px; display:grid; place-items:center; flex:0 0 auto; border-radius:50%; background:#f0d579; color:#8b6717; font-size:17px; }
+.startPreviewNotice p,.startPreviewNotice b,.startPreviewNotice small { display:block; }
+.startPreviewNotice p { margin:0; }
+.startPreviewNotice b { font:500 15px Georgia,serif; }
+.startPreviewNotice small { margin-top:3px; color:#796c4b; font-size:11px; line-height:1.35; }
 .returnReminder { padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:16px; border:1px solid #d6dfcd; background:linear-gradient(110deg,#edf5e7,#fffaf0); }
 .returnReminder > div { display:flex; align-items:center; gap:11px; min-width:0; }
 .returnReminder > div > span { width:36px; height:36px; display:grid; place-items:center; flex:0 0 auto; border-radius:13px 13px 13px 4px; background:#dcebd4; font-size:18px; }
@@ -706,6 +712,7 @@
   .tipsResearch { padding:19px 16px; }
   .returnReminder { width:min(100% - 24px,920px); align-items:flex-start; flex-wrap:wrap; }
   .returnReminder > button:not(:last-child) { margin-left:47px; }
+  .startPreviewNotice { width:min(100% - 24px,920px); align-items:flex-start; }
   .pointsNotice { width:min(100% - 24px,920px); }
   .ideasSection { padding-top:27px; }
   .ideasHero > div:first-child { padding:34px 22px; border-radius:24px; }
