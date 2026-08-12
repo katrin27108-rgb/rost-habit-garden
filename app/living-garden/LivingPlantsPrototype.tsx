@@ -384,6 +384,7 @@ export default function LivingPlantsPrototype() {
   const [coachingQuestionIndex, setCoachingQuestionIndex] = useState(0);
   const [flippedTips, setFlippedTips] = useState<Record<string, boolean>>({});
   const carouselTouchStart = useRef<number | null>(null);
+  const plantStageRef = useRef<HTMLElement | null>(null);
 
   const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases, deletedPlantIds }), [claimedAchievements, deletedPlantIds, plants, purchases]);
   const points = livingGardenPoints(snapshot);
@@ -547,6 +548,13 @@ export default function LivingPlantsPrototype() {
     return () => window.clearTimeout(timeout);
   }, [cloudReady, snapshot, syncStatus]);
 
+  function bringPlantIntoViewOnMobile() {
+    if (typeof window === "undefined" || !window.matchMedia("(max-width: 860px)").matches) return;
+    window.setTimeout(() => {
+      plantStageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
+
   function showCareEffect(plantId: string, kind: CareEffect) {
     setEffect({ plantId, kind });
     window.setTimeout(() => setEffect((current) => current?.plantId === plantId && current.kind === kind ? null : current), 1800);
@@ -556,6 +564,7 @@ export default function LivingPlantsPrototype() {
     const plant = plants.find((item) => item.id === plantId);
     if (!plant) return;
     setSelectedId(plantId);
+    bringPlantIntoViewOnMobile();
     const checked = livingHabitDates(plant).includes(today);
     if (!checked && habitDaysFor(plant) >= plant.goalDays) return;
 
@@ -713,6 +722,7 @@ export default function LivingPlantsPrototype() {
     };
     setPlants((current) => [...current, plant]);
     setSelectedId(plant.id);
+    bringPlantIntoViewOnMobile();
     setMessages((current) => ({ ...current, [plant.id]: "Какой хороший выбор. Здесь начинается новая история — с семечка и твоего первого бережного шага." }));
     setShowPlanting(false);
   }
@@ -801,7 +811,7 @@ export default function LivingPlantsPrototype() {
           <button className={styles.addHabit} onClick={() => setShowPlanting(true)}><span>＋</span><b>Посадить новую привычку</b></button>
         </aside>
 
-        <article className={`${styles.plantStage} ${effect?.plantId === selected.id ? styles.celebrating : ""}`} style={{ "--accent": selectedSpecies.accent } as CSSProperties}>
+        <article ref={plantStageRef} className={`${styles.plantStage} ${effect?.plantId === selected.id ? styles.celebrating : ""}`} style={{ "--accent": selectedSpecies.accent } as CSSProperties}>
           {plants.length === 0 ? (
             <div className={styles.emptyGardenStage}>
               <span aria-hidden="true">❧</span>

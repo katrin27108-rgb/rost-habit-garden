@@ -105,7 +105,7 @@
 .addHabit span { font-size: 20px; color: #72875f; }
 .addHabit b { font-size: 11px; }
 
-.plantStage { --accent:#d9a126; position: relative; min-height: 920px; padding: 26px 30px 24px; overflow: hidden; }
+.plantStage { --accent:#d9a126; position: relative; min-height: 920px; padding: 26px 30px 24px; overflow: hidden; scroll-margin-top: 16px; }
 .plantStage::before { content:""; position:absolute; inset:0; background: radial-gradient(circle at 50% 36%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 38%); pointer-events:none; }
 .stageTop,.plantScene,.careDock,.liveMessage,.monthBlock,.scheduleSettings { position: relative; z-index: 2; }
 .stageTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
@@ -685,8 +685,8 @@
   .habitRow { min-height:70px; }
   .plantStage { min-height:0; }
   .stageTop h2 { font-size:25px; }
-  .plantScene { height:330px; }
-  .carouselCurrent { inset:0 11%; }
+  .plantScene { height:360px; }
+  .carouselCurrent { inset:0 11% 76px; }
   .carouselPeek { top:55px; bottom:58px; width:17%; }
   .carouselPrevious { left:-6%; }
   .carouselNext { right:-6%; }
@@ -694,7 +694,7 @@
   .carouselPeek > .plantArt { inset:0; }
   .carouselArrow { width:27px; height:27px; font-size:21px; }
   .frameImage { width:min(145%,510px); }
-  .growthCaption { max-width:94%; white-space:normal; }
+  .growthCaption { bottom:8px; max-width:94%; white-space:normal; }
   .dayDots { grid-template-columns:repeat(10,1fr); }
   .scheduleSettings { grid-template-columns:1fr; }
   .habitManagement { align-items:flex-start; flex-direction:column; }
