@@ -1,5 +1,5 @@
-const CACHE = "rost-shell-v13-reversible-habits";
-const APP_ROOT = new URL("./", self.location.href).pathname;
+const CACHE = "rost-shell-v14-living-garden-launch";
+const APP_ROOT = "/living-garden";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(
@@ -8,14 +8,24 @@ self.addEventListener("activate", (event) => event.waitUntil(
     .then(() => self.clients.claim()),
 ));
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) return;
+  const requestUrl = new URL(event.request.url);
+  if (
+    event.request.method !== "GET" ||
+    requestUrl.origin !== self.location.origin ||
+    requestUrl.pathname.startsWith("/api/")
+  ) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match(APP_ROOT))),
+      .catch(() => caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return event.request.destination === "document" ? caches.match(APP_ROOT) : Response.error();
+      })),
   );
 });
