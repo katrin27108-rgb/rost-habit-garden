@@ -54,3 +54,4 @@
 
 Добавляйте только подтверждённые решения, действующие дольше одной задачи. При изменении решения заменяйте старую запись, а не накапливайте противоречия. Никогда не добавляйте токены, пароли, D1 ID, персональные данные, локальные абсолютные пути или пересказ диалога.
 - New visitors to `/living-garden` start with an empty garden. Use `?start=empty` for a non-destructive clean-start preview; it does not read or overwrite saved local/cloud data.
+- `/living-garden` now exposes a separate `Коучинг` tab with rotating open questions informed by reflective coaching, implementation-intention planning, and self-compassion; tips use large flip cards and source links remain prominent.

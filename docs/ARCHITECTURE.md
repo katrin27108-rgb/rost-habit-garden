@@ -134,3 +134,4 @@ flowchart LR
 - Локальная запись выполняется раньше сетевой синхронизации.
 - Изменение сохранённой модели требует миграции старых локальных и серверных данных.
 - The public `/living-garden` route starts new visitors with an empty garden. `?start=empty` provides a non-destructive clean-start preview that skips local/cloud restoration and persistence.
+- The `/living-garden` top navigation separates `Коучинг` from `Идеи привычек`; coaching rotates one open question at a time, while `Подсказки` render as accessible flip cards with enlarged research links.

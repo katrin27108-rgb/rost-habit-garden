@@ -34,6 +34,7 @@ import {
   livingMonthLabel,
   moveLivingMonth,
 } from "../../lib/living-garden-statistics";
+import { messageForDay } from "../../lib/messages";
 import AuthModal from "../AuthModal";
 import styles from "./living-garden.module.css";
 
@@ -108,10 +109,16 @@ const frequencyLabels: Record<Frequency, string> = {
 const habitIdeas: HabitIdea[] = [
   { category: "ЗДОРОВЬЕ", icon: "☀️", title: "Выйти на дневной свет", detail: "Небольшая прогулка или несколько минут у окна помогают мягко переключиться в новый день.", starter: "Выйти на улицу на 5 минут" },
   { category: "ЗДОРОВЬЕ", icon: "🥗", title: "Добавить один полезный продукт", detail: "Не менять весь рацион сразу, а положить к привычному обеду фрукт, овощ или горсть орехов.", starter: "Добавить овощ к сегодняшнему обеду" },
+  { category: "ЗДОРОВЬЕ", icon: "🌙", title: "Начать вечер чуть раньше", detail: "Маленький вечерний сигнал помогает телу заметить, что день заканчивается и пора замедляться.", starter: "Начать готовиться ко сну на 15 минут раньше" },
+  { category: "ЗДОРОВЬЕ", icon: "🫶", title: "Разгрузить плечи", detail: "Короткая пауза на дыхание и мягкое движение возвращает внимание к телу прямо посреди обычного дня.", starter: "Сделать минутную паузу для плеч" },
   { category: "САМОРАЗВИТИЕ", icon: "📖", title: "Прочитать две страницы", detail: "Маленький объём оставляет место для любопытства и не превращает чтение в экзамен.", starter: "Прочитать две страницы книги" },
   { category: "САМОРАЗВИТИЕ", icon: "✍️", title: "Записать одну мысль", detail: "Короткая заметка помогает услышать себя и заметить, что уже меняется.", starter: "Записать одну мысль перед сном" },
+  { category: "САМОРАЗВИТИЕ", icon: "🧩", title: "Разобрать один маленький вопрос", detail: "Выбери одну вещь, которую давно откладываешь, и удели ей всего пять спокойных минут.", starter: "Разобраться с одним маленьким вопросом" },
+  { category: "САМОРАЗВИТИЕ", icon: "🌱", title: "Выучить одну новую вещь", detail: "Одно слово, факт или короткое объяснение поддерживает любопытство без перегруза.", starter: "Узнать один новый факт" },
   { category: "МАЛЕНЬКИЕ РАДОСТИ", icon: "🎶", title: "Включить любимую песню", detail: "Свяжи простое действие с тем, что уже приятно: так возвращаться к нему легче.", starter: "Послушать одну любимую песню без телефона в руках" },
   { category: "МАЛЕНЬКИЕ РАДОСТИ", icon: "🌿", title: "Устроить пять минут тишины", detail: "Небольшая пауза без цели тоже может стать заботой о себе.", starter: "Посидеть пять минут с чаем" },
+  { category: "МАЛЕНЬКИЕ РАДОСТИ", icon: "💌", title: "Отправить тёплое сообщение", detail: "Одна короткая весточка человеку, о котором вспомнилось, возвращает ощущение связи.", starter: "Написать одному близкому человеку" },
+  { category: "МАЛЕНЬКИЕ РАДОСТИ", icon: "🕯️", title: "Добавить уюта одному месту", detail: "Плед, свеча, свежий воздух или порядок на маленькой поверхности меняют ощущение пространства.", starter: "Сделать уютнее одно место дома" },
 ];
 
 const coachingQuestions = [
@@ -119,6 +126,14 @@ const coachingQuestions = [
   "Что в этой привычке уже сейчас может быть приятным именно для тебя?",
   "Какой самый маленький шаг всё равно будет честным движением вперёд?",
   "По какому признаку ты поймёшь через месяц, что выбрала важное для себя направление?",
+  "Чего ты на самом деле хочешь получить благодаря этой привычке — за пределами самой отметки?",
+  "Что уже есть в твоей жизни, на что можно опереться, чтобы начать?",
+  "Какой сигнал подскажет тебе: «сейчас подходящий момент»?",
+  "Если появится препятствие, какой мягкий план «если — то» поможет тебе не потерять связь с привычкой?",
+  "Что можно упростить в этой привычке, чтобы она стала легче, а не менее важной?",
+  "Как бы ты поддержала близкую подругу, если бы она оказалась на твоём месте сегодня?",
+  "Какой результат этой недели ты захочешь заметить и поблагодарить себя за него?",
+  "Какая версия этой привычки подходит твоей энергии именно сегодня?",
 ];
 
 const habitTips: HabitTip[] = [
@@ -271,7 +286,7 @@ const praiseMessages = [
   "Этот шаг уже твой. Сад запомнил его и стал немного живее.",
 ];
 
-const dailyQuote = "Не нужно менять всю жизнь за один день. Достаточно одного доброго действия, которое ты повторишь сегодня.";
+const dailyQuote = messageForDay(livingDateKey()).text;
 
 function monthlySupportMessage(totalCompleted: number, rate: number) {
   if (totalCompleted === 0) return "Этот месяц пока как чистая грядка. Первая отметка уже будет настоящим началом.";
@@ -362,10 +377,12 @@ export default function LivingPlantsPrototype() {
   const [newTimesPerWeek, setNewTimesPerWeek] = useState(2);
   const [newReminder, setNewReminder] = useState<string | null>("09:00");
   const [customReminderTime, setCustomReminderTime] = useState("09:00");
-  const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics" | "tips" | "ideas">("garden");
+  const [activeView, setActiveView] = useState<"garden" | "successes" | "statistics" | "tips" | "coaching" | "ideas">("garden");
   const [statisticsMonth, setStatisticsMonth] = useState(() => livingMonthKey());
   const [pointsNotice, setPointsNotice] = useState<{ amount: number; text: string } | null>(null);
   const [returnReminder, setReturnReminder] = useState(false);
+  const [coachingQuestionIndex, setCoachingQuestionIndex] = useState(0);
+  const [flippedTips, setFlippedTips] = useState<Record<string, boolean>>({});
   const carouselTouchStart = useRef<number | null>(null);
 
   const snapshot = useMemo<LivingGardenSnapshot>(() => ({ version: LIVING_GARDEN_VERSION, plants, claimedAchievements, purchases, deletedPlantIds }), [claimedAchievements, deletedPlantIds, plants, purchases]);
@@ -487,6 +504,10 @@ export default function LivingPlantsPrototype() {
     const timeout = window.setTimeout(() => setPointsNotice(null), 3600);
     return () => window.clearTimeout(timeout);
   }, [pointsNotice]);
+
+  useEffect(() => {
+    setCoachingQuestionIndex(Math.floor(Math.random() * coachingQuestions.length));
+  }, []);
 
   useEffect(() => {
     if (!hydrated || cleanStartPreview) return;
@@ -659,6 +680,17 @@ export default function LivingPlantsPrototype() {
     setShowDecorationPicker(false);
   }
 
+  function showAnotherCoachingQuestion() {
+    setCoachingQuestionIndex((current) => {
+      const next = Math.floor(Math.random() * coachingQuestions.length);
+      return next === current ? (next + 1) % coachingQuestions.length : next;
+    });
+  }
+
+  function toggleTip(tipId: string) {
+    setFlippedTips((current) => ({ ...current, [tipId]: !current[tipId] }));
+  }
+
   function plantNewHabit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newHabit.trim();
@@ -717,6 +749,7 @@ export default function LivingPlantsPrototype() {
         <button type="button" role="tab" aria-selected={activeView === "successes"} className={activeView === "successes" ? styles.activeViewTab : ""} onClick={() => setActiveView("successes")}><span>♕</span> Сад успехов <b>{completedPlants.length}</b></button>
         <button type="button" role="tab" aria-selected={activeView === "statistics"} className={activeView === "statistics" ? styles.activeViewTab : ""} onClick={() => setActiveView("statistics")}><span>◫</span> Статистика</button>
         <button type="button" role="tab" aria-selected={activeView === "tips"} className={activeView === "tips" ? styles.activeViewTab : ""} onClick={() => setActiveView("tips")}><span>✦</span> Подсказки</button>
+        <button type="button" role="tab" aria-selected={activeView === "coaching"} className={activeView === "coaching" ? styles.activeViewTab : ""} onClick={() => setActiveView("coaching")}><span>❧</span> Коучинг</button>
         <button type="button" role="tab" aria-selected={activeView === "ideas"} className={activeView === "ideas" ? styles.activeViewTab : ""} onClick={() => setActiveView("ideas")}><span>✿</span> Идеи привычек</button>
       </nav>
 
@@ -1042,6 +1075,26 @@ export default function LivingPlantsPrototype() {
             </div>
           </section>
         </section>
+      ) : activeView === "coaching" ? (
+        <section className={styles.coachingPage} role="tabpanel" aria-label="Коучинг для себя">
+          <div className={styles.coachingHero}>
+            <div className={styles.coachingHeroCopy}>
+              <span className={styles.eyebrow}>КОУЧИНГ ДЛЯ СЕБЯ</span>
+              <h1>Один честный вопрос может открыть следующий шаг.</h1>
+              <p>Не нужно искать идеальный ответ. Остановись на минуту, прислушайся к себе и выбери то, что действительно поддержит тебя сейчас.</p>
+              <div className={styles.coachingMethodTags}><span>открытый вопрос</span><span>мягкий фокус</span><span>один следующий шаг</span></div>
+            </div>
+            <article className={styles.coachingPrompt} aria-live="polite">
+              <span className={styles.coachingPromptKicker}>ВОПРОС ДЛЯ СЕБЯ · {coachingQuestionIndex + 1} ИЗ {coachingQuestions.length}</span>
+              <p>{coachingQuestions[coachingQuestionIndex]}</p>
+              <div><small>Можно просто подумать или записать ответ для себя.</small><button type="button" onClick={showAnotherCoachingQuestion}>Другой вопрос <b>→</b></button></div>
+            </article>
+          </div>
+          <section className={styles.coachingGuide}>
+            <div><span className={styles.eyebrow}>КАК ПОЛЬЗОВАТЬСЯ</span><h2>Не отвечай на всё сразу</h2><p>Выбери один вопрос, который зацепил. Дай себе пару минут на ответ — без оценки и без необходимости сразу что-то исправлять.</p></div>
+            <div className={styles.coachingSteps}><article><span>01</span><b>Заметь</b><p>Что сейчас происходит с тобой и твоей привычкой?</p></article><article><span>02</span><b>Выбери</b><p>Какой маленький шаг будет подходящим именно сегодня?</p></article><article><span>03</span><b>Поддержи</b><p>Что поможет тебе вернуться к этому шагу без давления?</p></article></div>
+          </section>
+        </section>
       ) : activeView === "tips" ? (
         <section className={styles.tipsSection} role="tabpanel" aria-label="Подсказки для устойчивых привычек">
           <div className={styles.tipsHero}>
@@ -1074,12 +1127,22 @@ export default function LivingPlantsPrototype() {
 
           <div className={styles.tipsGrid}>
             {habitTips.map((tip) => (
-              <article key={tip.id} className={styles.tipCard}>
-                <div className={styles.tipCardTop}><span>{tip.marker}</span><small>{tip.category}</small></div>
-                <h2>{tip.title}</h2>
-                <p>{tip.description}</p>
-                <blockquote><span>НАПРИМЕР</span><p>{tip.example}</p></blockquote>
-                <strong><span>→</span>{tip.takeaway}</strong>
+              <article key={tip.id} className={`${styles.tipCard} ${flippedTips[tip.id] ? styles.tipCardFlipped : ""}`}>
+                <button type="button" className={styles.tipCardButton} onClick={() => toggleTip(tip.id)} aria-pressed={Boolean(flippedTips[tip.id])}>
+                  <span className={styles.tipCardFace}>
+                    <span className={styles.tipCardTop}><span>{tip.marker}</span><small>{tip.category}</small></span>
+                    <strong className={styles.tipCardCoverTitle}>{tip.title}</strong>
+                    <span className={styles.tipCardHint}>Перевернуть карточку <b>↻</b></span>
+                  </span>
+                  <span className={`${styles.tipCardFace} ${styles.tipCardBack}`}>
+                    <span className={styles.tipCardTop}><span>{tip.marker}</span><small>{tip.category}</small></span>
+                    <strong className={styles.tipCardBackTitle}>{tip.title}</strong>
+                    <span className={styles.tipCardBackCopy}>{tip.description}</span>
+                    <span className={styles.tipCardExample}><b>ПРИМЕР</b>{tip.example}</span>
+                    <span className={styles.tipCardTakeaway}><b>→</b>{tip.takeaway}</span>
+                    <span className={styles.tipCardHint}>Нажми, чтобы закрыть <b>↺</b></span>
+                  </span>
+                </button>
               </article>
             ))}
           </div>
@@ -1104,11 +1167,9 @@ export default function LivingPlantsPrototype() {
         <section className={styles.ideasSection} role="tabpanel" aria-label="Идеи полезных привычек">
           <div className={styles.ideasHero}>
             <div><span className={styles.eyebrow}>ИДЕИ ДЛЯ ТВОЕЙ ЖИЗНИ</span><h1>Не обязательно начинать с большой цели</h1><p>Выбери то, что хочется попробовать именно сейчас: для здоровья, саморазвития или маленькой радости. Одной идеи достаточно.</p></div>
-            <div className={styles.questionCard}><span>ВОПРОС ДЛЯ СЕБЯ</span><p>{coachingQuestions[totalConfirmedActions % coachingQuestions.length]}</p></div>
           </div>
           <div className={styles.ideasHeading}><div><span className={styles.eyebrow}>КОЛЛЕКЦИЯ ИДЕЙ</span><h2>Привычки, которые можно примерить</h2></div><p>Нажми на карточку — она подставит мягкий старт в форму новой привычки.</p></div>
           <div className={styles.ideasGrid}>{habitIdeas.map((idea) => <article className={styles.ideaCard} key={idea.title}><div className={styles.ideaIcon}>{idea.icon}</div><span>{idea.category}</span><h2>{idea.title}</h2><p>{idea.detail}</p><button type="button" onClick={() => { setNewHabit(idea.starter); setShowPlanting(true); }}>Взять как идею <b>→</b></button></article>)}</div>
-          <section className={styles.coachingSection}><div><span className={styles.eyebrow}>КОУЧИНГОВЫЕ ВОПРОСЫ</span><h2>Остановиться и услышать себя</h2><p>Ответ не обязан быть идеальным. Иногда хорошая привычка начинается с одного честного вопроса.</p></div><div className={styles.questionList}>{coachingQuestions.map((question, index) => <article key={question}><span>0{index + 1}</span><p>{question}</p></article>)}</div></section>
         </section>
       )}
 
