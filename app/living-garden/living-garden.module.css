@@ -686,7 +686,7 @@
   .plantStage { min-height:0; }
   .stageTop h2 { font-size:25px; }
   .plantScene { height:360px; }
-  .carouselCurrent { inset:0 11% 76px; }
+  .carouselCurrent { inset:0 11% 92px; }
   .carouselPeek { top:55px; bottom:58px; width:17%; }
   .carouselPrevious { left:-6%; }
   .carouselNext { right:-6%; }
